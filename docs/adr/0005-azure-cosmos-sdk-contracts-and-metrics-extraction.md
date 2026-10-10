@@ -88,6 +88,20 @@ Chosen option: "Option 1", because:
   1. If `query_def.partition_key` is set, `is_cross_partition` is strictly `False`.
   2. Otherwise, `is_cross_partition` evaluates to `len(distinct_pkr_ids) > 1` based on `HttpHeaders.PartitionKeyRangeID`.
 
+### 6. Linux Emulator Image Selection (`vnext-preview` vs `2.14.28`)
+
+* **Empirical Evaluation of `vnext-preview`** (`mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview`):
+  * Architecture is built on PostgreSQL + `pgcosmos` extension with a Rust gateway.
+  * Protocol: Listens on HTTP by default (`http://0.0.0.0:8081`). Attempting HTTPS connections triggers `[SSL] record layer failure (_ssl.c:1010)`. This violates QueryLens HTTPS-only security invariant.
+  * Partitioning: Ignores `AZURE_COSMOS_EMULATOR_PARTITION_COUNT` and only exposes single partition key range `0`.
+  * Index Metrics: Emits `{}` instead of the standard Base64-encoded JSON index utilization payload.
+* **Selection of Pinned Tag `2.14.28`** (`mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:2.14.28`):
+  * Corresponds to `latest` digest `sha256:9a4f69121f20c1d6502db84625c71ebb441ab61b01880a7b2d3d8031c6dac429`.
+  * Supports native HTTPS via self-signed cert (`_explorer/emulator.pem`).
+  * Emits standard Base64-encoded index utilization and full semicolon-delimited query metrics.
+  * Supports physical partition partitioning (`AZURE_COSMOS_EMULATOR_PARTITION_COUNT=3`).
+* **Decision**: Pin both `docker-compose.yml` and `.github/workflows/ci.yml` strictly to `mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:2.14.28` rather than floating `:latest`.
+
 ### Positive Consequences
 
 * Clean, standards-based integration using official SDK public extensibility points (`response_hook`).

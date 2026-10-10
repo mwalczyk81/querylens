@@ -1,6 +1,6 @@
 services:
   cosmos-emulator:
-    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:2.14.28
     container_name: querylens-cosmos-emulator
     platform: linux/amd64
     environment:
