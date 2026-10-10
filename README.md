@@ -68,7 +68,26 @@ docker compose up -d
 uv run python scripts/seed_emulator.py
 ```
 
+The script initializes the `querylens_dev` database with two containers: `items` (default indexing) and `unindexed_items` (where `/unindexed_tag/?` is excluded from the indexing policy), deterministically populating 1,320 documents across 60 partition keys (including small items, 20 large multi-KB documents, and a dense 121-document partition) to trigger fan-out and scan-gap metrics.
+
 ### 4. Run QueryLens Against Example Workload
+
+Workload files define target containers and queries to profile (see [`examples/workload.yaml`](examples/workload.yaml)):
+
+```yaml
+version: "1"
+database: "querylens_dev"
+container: "unindexed_items"
+
+queries:
+  # Expected: QL001 (High RU Cost) and QL002 (Cross-Partition Fan-Out)
+  - id: "high_ru_scan"
+    query: "SELECT * FROM c"
+
+  # Expected: QL002 (Cross-Partition Fan-Out)
+  - id: "cross_partition_fanout"
+    query: "SELECT * FROM c WHERE c.status = 'active'"
+```
 
 Configure the emulator endpoint and master key, then profile the workload:
 
