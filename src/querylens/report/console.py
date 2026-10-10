@@ -32,7 +32,8 @@ def render_console_report(summary: WorkloadRunSummary, console: Console | None =
 
     header_text = (
         f"[bold cyan]Database:[/bold cyan] {summary.database}  |  "
-        f"[bold cyan]Container:[/bold cyan] {summary.container}\n"
+        f"[bold cyan]Container:[/bold cyan] {summary.container}  |  "
+        f"[bold cyan]Page size:[/bold cyan] {summary.max_item_count}\n"
         f"[bold cyan]Executed:[/bold cyan] "
         f"{summary.completed_queries}/{summary.total_queries} queries  |  "
         f"[bold cyan]Total RUs:[/bold cyan] {summary.total_ru_consumed:.2f} RUs  |  "

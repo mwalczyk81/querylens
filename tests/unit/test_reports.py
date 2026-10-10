@@ -107,6 +107,7 @@ class TestReports:
 
         assert parsed["database"] == "test-db"
         assert parsed["container"] == "orders"
+        assert parsed["max_item_count"] == 100
         assert len(parsed["results"]) == 3
         assert parsed["total_ru_consumed"] == 327.5
 
@@ -119,6 +120,7 @@ class TestReports:
         output = console.export_text()
 
         assert "QueryLens Workload Profile" in output
+        assert "Page size: 100" in output
         assert "q1-high-ru" in output
         assert "q2-med-ru" in output
         assert "q3-low-ru" in output

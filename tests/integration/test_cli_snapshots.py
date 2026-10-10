@@ -68,6 +68,7 @@ queries:
         )
         assert result.exit_code == 0
         assert "QueryLens Workload Profile" in result.output
+        assert "Page size: 100" in result.output
         assert "q2-heavy" in result.output
         assert "q1-fast" in result.output
         # Verify ranking: q2-heavy with 240 RUs appears before q1-fast with 2.8 RUs
@@ -117,6 +118,7 @@ queries:
         parsed = json.loads(result.output)
         assert parsed["database"] == "snap-db"
         assert parsed["container"] == "orders"
+        assert parsed["max_item_count"] == 100
         assert parsed["total_queries"] == 1
         assert parsed["completed_queries"] == 1
         assert parsed["results"][0]["cost"]["query_id"] == "q1-fast"

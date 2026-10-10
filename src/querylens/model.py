@@ -284,6 +284,9 @@ class WorkloadRunSummary(BaseModel):
     budget_exceeded: bool = Field(
         ..., description="Whether run was halted due to exceeding RU budget"
     )
+    max_item_count: int = Field(
+        default=100, ge=1, description="Cosmos DB query page batch size (max_item_count)"
+    )
     results: list[QueryResultSummary] = Field(
         default_factory=list, description="Queries ranked descending by Request Units"
     )

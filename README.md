@@ -61,8 +61,8 @@ uv run querylens run examples/workload.yaml
 
 ```text
 +------------------------ QueryLens Workload Profile -------------------------+
-| Database: querylens_dev  |  Container: unindexed_items                      |
-| Executed: 6/6 queries  |  Total RUs: 163.30 RUs  |  Budget: none            |
+| Database: querylens_dev  |  Container: unindexed_items  |  Page size: 100   |
+| Executed: 5/5 queries  |  Total RUs: 163.30 RUs  |  Budget: none            |
 +-----------------------------------------------------------------------------+
 +---------------------------------------------------------------------------------------------------------------------------------------------------------------+
 |  Rank | Query ID                         |    RU Cost | Server time |   Scanned |  Returned | Fan-Out | Severity | Diagnostic Findings                         |
@@ -70,9 +70,8 @@ uv run querylens run examples/workload.yaml
 |     1 | cross_partition_fanout           |      65.65 |      7.2 ms |       995 |       995 |   Yes   |   HIGH   | High RU Cost (QL001), Fan-Out (QL002)       |
 |     2 | high_ru_scan                     |      63.10 |      7.7 ms |      1320 |      1320 |   Yes   |   HIGH   | High RU Cost (QL001), Fan-Out (QL002)       |
 |     3 | scan_gap_unindexed               |      22.07 |      2.4 ms |      1320 |         1 |   Yes   | CRITICAL | Fan-Out (QL002), Scan-to-Return Gap (QL003) |
-|     4 | control_single_partition_pages   |       9.56 |      1.1 ms |       121 |       121 |    No   |   INFO   | None (Clean Control)                        |
+|     4 | control_single_partition_multipage|       9.56 |      1.1 ms |       121 |       121 |    No   |   INFO   | None (Clean Control)                        |
 |     5 | control_point_read               |       2.92 |      0.3 ms |         1 |         1 |    No   |   INFO   | None (Clean Control)                        |
-|     6 | bad_syntax_error                 |       0.00 |      0.0 ms |         0 |         0 |    No   |   INFO   | [ERROR] Handled query syntax error          |
 +---------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 Diagnostic Details:
@@ -81,6 +80,9 @@ Diagnostic Details:
   - Scan-to-Return Gap (QL003) [CRITICAL]: Scanned-to-returned ratio of 1220.0x exceeds critical threshold (100.0x).
     Evidence: {'ratio': 1220.0, 'documents_scanned': 1220, 'documents_returned': 1, 'threshold': 100.0}
 ```
+
+> [!NOTE]
+> **Page Size and RU Accounting**: Reported Request Units include Azure Cosmos DB's minimum per-request charge (approximately 2.9 RU per HTTP gateway request page). Consequently, cumulative RU consumption increases as `--max-item-count` shrinks because retrieving the same dataset requires more round-trip pages. Always compare workload profiling runs using identical page sizes (`--max-item-count`).
 
 ---
 

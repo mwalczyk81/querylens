@@ -64,7 +64,15 @@ def cli(ctx: click.Context, debug: bool) -> None:
 @click.option("-c", "--container", default=None, help="Cosmos DB container name.")
 @click.option("-b", "--ru-budget", type=float, default=None, help="Max cumulative RU budget limit.")
 @click.option("--json", "json_output", is_flag=True, default=False, help="Emit JSON to stdout.")
-@click.option("--max-item-count", type=int, default=None, help="Page batch size limit.")
+@click.option(
+    "--max-item-count",
+    type=int,
+    default=None,
+    help=(
+        "Page batch size limit. Note: Cosmos DB levies a minimum ~2.9 RU charge per request page; "
+        "total RU increases with smaller page sizes. Compare runs only at identical page sizes."
+    ),
+)
 @click.option("--high-ru-warn", type=float, default=None, help="High RU warning threshold.")
 @click.option("--high-ru-crit", type=float, default=None, help="High RU critical threshold.")
 @click.option("--scan-gap-warn", type=float, default=None, help="Scan-to-return gap warning ratio.")
@@ -194,6 +202,7 @@ def run(
                 total_ru_consumed=round(total_ru, 2),
                 ru_budget=settings.ru_budget or workload.ru_budget,
                 budget_exceeded=budget_exceeded,
+                max_item_count=settings.max_item_count,
                 results=results,
             )
             if json_output:
@@ -253,6 +262,7 @@ def run(
         total_ru_consumed=round(total_ru, 2),
         ru_budget=settings.ru_budget or workload.ru_budget,
         budget_exceeded=budget_exceeded,
+        max_item_count=settings.max_item_count,
         results=results,
     )
 

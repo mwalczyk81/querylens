@@ -10,6 +10,7 @@
     "completed_queries",
     "total_ru_consumed",
     "budget_exceeded",
+    "max_item_count",
     "results"
   ],
   "properties": {
@@ -22,6 +23,10 @@
     },
     "container": {
       "type": "string"
+    },
+    "max_item_count": {
+      "type": "integer",
+      "minimum": 1
     },
     "total_queries": {
       "type": "integer",
