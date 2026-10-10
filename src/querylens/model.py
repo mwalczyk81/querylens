@@ -1,9 +1,9 @@
 """Domain models and schemas for QueryLens."""
 
 from enum import StrEnum
-from typing import Any
+from typing import Any, Self
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class Severity(StrEnum):
@@ -231,8 +231,9 @@ class QueryCost(BaseModel):
     latency_ms: float = Field(..., ge=0.0, description="Server execution latency in ms")
     documents_scanned: int = Field(..., ge=0, description="Number of documents scanned")
     documents_returned: int = Field(..., ge=0, description="Number of documents returned")
-    is_cross_partition: bool = Field(
-        ..., description="Whether execution fanned out across multiple partitions"
+    is_cross_partition: bool | None = Field(
+        default=None,
+        description="Whether execution fanned out across multiple partitions, or null if unknown",
     )
     is_partial: bool = Field(
         default=False, description="Whether execution was terminated early by budget guard"
@@ -249,6 +250,13 @@ class QueryCost(BaseModel):
     has_partition_key: bool = Field(
         default=False, description="Whether query had a targeted partition key specified"
     )
+
+    @model_validator(mode="after")
+    def _enforce_cross_partition_partial(self) -> Self:
+        """Emit null for is_cross_partition on partial unpartitioned query."""
+        if self.is_partial and not self.has_partition_key:
+            self.is_cross_partition = None
+        return self
 
 
 class Finding(BaseModel):

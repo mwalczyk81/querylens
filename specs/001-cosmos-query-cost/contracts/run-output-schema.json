@@ -71,7 +71,7 @@
               "latency_ms": { "type": "number" },
               "documents_scanned": { "type": "integer" },
               "documents_returned": { "type": "integer" },
-              "is_cross_partition": { "type": "boolean" },
+              "is_cross_partition": { "type": ["boolean", "null"] },
               "is_partial": { "type": "boolean" },
               "has_partition_key": { "type": "boolean" },
               "error_message": { "type": ["string", "null"] },

@@ -73,14 +73,12 @@ def render_console_report(summary: WorkloadRunSummary, console: Console | None =
         if cost.is_partial:
             ru_str += " [italic red](partial)[/italic red]"
 
-        if cost.is_partial:
-            fan_out_str = (
-                "[green]No[/green]" if cost.has_partition_key else "[yellow]unknown[/yellow]"
-            )
+        if cost.is_cross_partition is None:
+            fan_out_str = "[yellow]unknown[/yellow]"
+        elif cost.is_cross_partition:
+            fan_out_str = "[bold red]Yes[/bold red]"
         else:
-            fan_out_str = (
-                "[bold red]Yes[/bold red]" if cost.is_cross_partition else "[green]No[/green]"
-            )
+            fan_out_str = "[green]No[/green]"
 
         finding_badges: list[str] = []
         if cost.error_message:

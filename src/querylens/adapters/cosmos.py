@@ -380,6 +380,12 @@ class CosmosAdapter:
                 raise
 
             agg = aggregate_query_headers(page_headers, query_def=query_def)
+            is_cross_partition: bool | None
+            if budget_breached and query_def.partition_key is None:
+                is_cross_partition = None
+            else:
+                is_cross_partition = agg["is_cross_partition"]
+
             cost = QueryCost(
                 query_id=query_def.id,
                 query_text=query_def.query,
@@ -387,7 +393,7 @@ class CosmosAdapter:
                 latency_ms=agg["latency_ms"],
                 documents_scanned=agg["documents_scanned"],
                 documents_returned=agg["documents_returned"],
-                is_cross_partition=agg["is_cross_partition"],
+                is_cross_partition=is_cross_partition,
                 is_partial=budget_breached,
                 has_partition_key=query_def.partition_key is not None,
                 index_metrics=agg["index_metrics"],

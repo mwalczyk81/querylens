@@ -17,7 +17,7 @@ def rule_cross_partition_fanout(cost: QueryCost, _settings: Settings) -> list[Fi
     if cost.is_partial:
         return []
 
-    if cost.is_cross_partition:
+    if cost.is_cross_partition is True:
         return [
             Finding(
                 rule_id="QL002",

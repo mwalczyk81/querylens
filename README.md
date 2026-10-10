@@ -87,9 +87,64 @@ Diagnostic Details:
 > [!NOTE]
 > **Partial Results Semantics**: When cumulative Request Units exceed `--ru-budget`, execution terminates immediately:
 > - **RU Cost**: Displays cumulative RUs consumed prior to abortion, annotated with `(partial)`. This represents a valid lower bound on total query cost.
-> - **Fan-Out**: Displays `unknown` when no `partition_key` was specified (since incomplete execution cannot determine whether unvisited partitions would have been contacted), or `No` if the query had a targeted `partition_key`.
+> - **Fan-Out**: Displays `unknown` in terminal reports and emits `null` for `is_cross_partition` in `--json` output when no `partition_key` was specified (since incomplete execution cannot determine whether unvisited partitions would have been contacted), or `No` (`false`) if the query had a targeted `partition_key`.
 > - **Diagnostic Rules**: Structural and ratio rules `QL002` (Fan-Out) and `QL003` (Scan-to-Return Gap) are skipped on partial costs because partial execution cannot reliably assess full-workload partition coverage or scan-to-return ratios. `QL001` (High RU Cost) remains active because partial charge is a valid lower bound.
 > - **Findings**: Displays `n/a (partial)` if no findings (such as `QL001`) fired on the partial row.
+
+---
+
+## 📊 Machine-Readable Output (`--json`)
+
+QueryLens supports CI/CD automation and dashboard integration via the global `--json` flag. The structured output conforms to [`run-output-schema.json`](specs/001-cosmos-query-cost/contracts/run-output-schema.json).
+
+```json
+{
+  "timestamp": "2026-10-10T12:00:00Z",
+  "database": "querylens_dev",
+  "container": "unindexed_items",
+  "max_item_count": 100,
+  "total_queries": 1,
+  "completed_queries": 1,
+  "total_ru_consumed": 22.07,
+  "ru_budget": null,
+  "budget_exceeded": false,
+  "results": [
+    {
+      "cost": {
+        "query_id": "scan_gap_unindexed",
+        "query_text": "SELECT * FROM c WHERE c.unindexed_tag = 'rare_tag'",
+        "request_charge": 22.07,
+        "latency_ms": 2.4,
+        "documents_scanned": 1320,
+        "documents_returned": 1,
+        "is_cross_partition": true,
+        "is_partial": false,
+        "has_partition_key": false,
+        "error_message": null,
+        "activity_id": "d04084f3-...",
+        "index_metrics": null
+      },
+      "findings": [
+        {
+          "rule_id": "QL003",
+          "rule_name": "Scan-to-Return Gap",
+          "severity": "CRITICAL",
+          "summary": "Scanned-to-returned ratio of 1320.0x exceeds critical threshold (100.0x).",
+          "evidence": {
+            "ratio": 1320.0,
+            "documents_scanned": 1320,
+            "documents_returned": 1,
+            "threshold": 100.0
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+> [!NOTE]
+> **Nullable `is_cross_partition`**: `cost.is_cross_partition` is `bool | null`. When `--ru-budget` halts a query mid-stream without a targeted partition key, `is_cross_partition` emits `null` (corresponding directly to `unknown` in the terminal table). For completed queries or partitioned queries, it emits boolean `true` or `false`.
 
 ---
 

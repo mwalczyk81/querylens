@@ -15,6 +15,22 @@
     'request_charge': 0.0,
   })
 # ---
+# name: TestCliSnapshots.test_cli_partial_no_partition_key_json
+  dict({
+    'activity_id': None,
+    'documents_returned': 50,
+    'documents_scanned': 200,
+    'error_message': None,
+    'has_partition_key': False,
+    'index_metrics': None,
+    'is_cross_partition': None,
+    'is_partial': True,
+    'latency_ms': 12.5,
+    'query_id': 'q_unscoped',
+    'query_text': "SELECT * FROM c WHERE c.category = 'books'",
+    'request_charge': 15.0,
+  })
+# ---
 # name: TestCliSnapshots.test_cli_partial_results_table_snapshot
   '''
   ┌──────────────────────────────────────────── QueryLens Workload Profile ─────────────────────────────────────────────┐

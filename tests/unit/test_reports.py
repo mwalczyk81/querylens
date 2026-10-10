@@ -221,3 +221,36 @@ class TestReports:
         assert "unknown" in output
         assert "No" in output
         assert "(partial)" in output
+        assert unscoped_partial.is_cross_partition is None
+        assert scoped_partial.is_cross_partition is False
+
+    def test_json_serialization_partial_null_fanout(self) -> None:
+        """Verify serialize_summary_json emits null is_cross_partition on partial rows."""
+        unscoped_partial = QueryCost(
+            query_id="q_partial_unscoped",
+            query_text="SELECT * FROM c WHERE c.type = 'a'",
+            request_charge=15.0,
+            latency_ms=10.0,
+            documents_scanned=100,
+            documents_returned=20,
+            is_partial=True,
+            has_partition_key=False,
+        )
+        assert unscoped_partial.is_cross_partition is None
+        summary = WorkloadRunSummary(
+            timestamp="2026-10-10T12:00:00Z",
+            database="test-db",
+            container="orders",
+            total_queries=1,
+            completed_queries=1,
+            total_ru_consumed=15.0,
+            ru_budget=10.0,
+            budget_exceeded=True,
+            results=[QueryResultSummary(cost=unscoped_partial, findings=[])],
+        )
+        json_str = serialize_summary_json(summary)
+        parsed = json.loads(json_str)
+        cost = parsed["results"][0]["cost"]
+        assert cost["is_cross_partition"] is None
+        assert cost["is_partial"] is True
+        assert cost["has_partition_key"] is False

@@ -108,6 +108,21 @@ class TestCrossPartitionFanoutRule:
         findings = rule_cross_partition_fanout(cost, settings)
         assert len(findings) == 0
 
+    def test_cross_partition_none_no_finding(self) -> None:
+        """Return no findings when is_cross_partition is None."""
+        settings = Settings()
+        cost = QueryCost(
+            query_id="q1",
+            query_text="SELECT * FROM c",
+            request_charge=5.0,
+            latency_ms=2.0,
+            documents_scanned=5,
+            documents_returned=5,
+            is_cross_partition=None,
+        )
+        findings = rule_cross_partition_fanout(cost, settings)
+        assert len(findings) == 0
+
     def test_cross_partition_detected(self) -> None:
         """Flag MEDIUM severity when query spans multiple partitions."""
         settings = Settings()

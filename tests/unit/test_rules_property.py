@@ -47,8 +47,8 @@ class TestRulesPropertyInvariants:
             assert findings[0].severity == Severity.CRITICAL
             assert "request_charge" in findings[0].evidence
 
-    @given(is_cross_partition=st.booleans())
-    def test_fanout_invariant(self, is_cross_partition: bool) -> None:
+    @given(is_cross_partition=st.booleans() | st.none())
+    def test_fanout_invariant(self, is_cross_partition: bool | None) -> None:
         """Verify fanout rule strictly mirrors is_cross_partition flag."""
         settings = Settings()
         cost = QueryCost(
@@ -62,7 +62,7 @@ class TestRulesPropertyInvariants:
         )
 
         findings = rule_cross_partition_fanout(cost, settings)
-        if is_cross_partition:
+        if is_cross_partition is True:
             assert len(findings) == 1
             assert findings[0].severity == Severity.MEDIUM
         else:

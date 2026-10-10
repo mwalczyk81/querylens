@@ -254,3 +254,55 @@ queries:
         assert "n/a (partial)" in result.output
         assert "⚠️ Execution aborted: Cumulative RU budget ceiling reached" in result.output
         assert result.output == snapshot
+
+    @patch("querylens.cli.get_adapter")
+    def test_cli_partial_no_partition_key_json(
+        self,
+        mock_get_adapter: MagicMock,
+        tmp_path: Path,
+        snapshot: SnapshotAssertion,
+    ) -> None:
+        """Assert JSON emits null for is_cross_partition on partial row without partition key."""
+        workload_yaml = tmp_path / "workload_partial_unscoped.yaml"
+        workload_yaml.write_text(
+            """
+version: "1"
+database: "snap-db"
+container: "orders"
+ru_budget: 10.0
+queries:
+  - id: "q_unscoped"
+    query: "SELECT * FROM c WHERE c.category = 'books'"
+""",
+            encoding="utf-8",
+        )
+
+        partial_cost = QueryCost(
+            query_id="q_unscoped",
+            query_text="SELECT * FROM c WHERE c.category = 'books'",
+            request_charge=15.0,
+            latency_ms=12.5,
+            documents_scanned=200,
+            documents_returned=50,
+            is_cross_partition=None,
+            is_partial=True,
+            has_partition_key=False,
+        )
+
+        mock_adapter = MagicMock()
+        mock_adapter.collect.side_effect = BudgetExceededError(partial_cost, 15.0)
+        mock_get_adapter.return_value = mock_adapter
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["run", str(workload_yaml), "--endpoint", "https://localhost:8081/", "--json"],
+        )
+        assert result.exit_code == 2
+        parsed = json.loads(result.output)
+        cost = parsed["results"][0]["cost"]
+        assert cost["query_id"] == "q_unscoped"
+        assert cost["is_partial"] is True
+        assert cost["has_partition_key"] is False
+        assert cost["is_cross_partition"] is None
+        assert cost == snapshot
