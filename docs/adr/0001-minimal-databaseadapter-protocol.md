@@ -26,6 +26,7 @@ Multi-database query profilers often suffer from leaky abstractions, premature g
 ## Decision Outcome
 
 Chosen option: "Option 1", because:
+
 1. It defines a minimal structural interface `collect(workload: Workload) -> Iterator[QueryCost]`.
 2. Diagnostic rules are pure functions `(QueryCost, Settings) -> list[Finding]` that know nothing about Cosmos DB drivers.
 3. Avoids premature repository layers or plugin reflection frameworks, satisfying the constitution's minimal abstraction gate.

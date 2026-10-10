@@ -28,48 +28,54 @@ QueryLens relies on low-level query metrics returned by Azure Cosmos DB to calcu
 Chosen option: "Option 1", because:
 
 ### 1. Verified SDK Signatures (`azure-cosmos==4.17.1`)
-- Method: `ContainerProxy.query_items(query, parameters=None, partition_key=None, enable_cross_partition_query=None, max_item_count=None, populate_query_metrics=None, populate_index_metrics=None, response_hook=None, ...)`
-- Parameter mappings:
-  - `query`: SQL query string.
-  - `parameters`: Optional list of dicts `[{"name": "@param", "value": val}]`.
-  - `partition_key`: Scalar value or list of 1–3 scalars for hierarchical partition keys.
-  - `populate_query_metrics=True`: Tells the Cosmos DB gateway/backend to emit execution metrics.
-  - `populate_index_metrics=True`: Tells the Cosmos DB engine to emit index utilization and recommendations.
-  - `response_hook`: Callback receiving `(headers: Mapping[str, str], body: dict[str, Any])` for each HTTP page/partition response.
+
+* Method: `ContainerProxy.query_items(query, parameters=None, partition_key=None, enable_cross_partition_query=None, max_item_count=None, populate_query_metrics=None, populate_index_metrics=None, response_hook=None, ...)`
+* Parameter mappings:
+  * `query`: SQL query string.
+  * `parameters`: Optional list of dicts `[{"name": "@param", "value": val}]`.
+  * `partition_key`: Scalar value or list of 1–3 scalars for hierarchical partition keys.
+  * `populate_query_metrics=True`: Tells the Cosmos DB gateway/backend to emit execution metrics.
+  * `populate_index_metrics=True`: Tells the Cosmos DB engine to emit index utilization and recommendations.
+  * `response_hook`: Callback receiving `(headers: Mapping[str, str], body: dict[str, Any])` for each HTTP page/partition response.
 
 ### 2. Verified Response Header Constants (`azure.cosmos.http_constants.HttpHeaders`)
-- `HttpHeaders.RequestCharge` (`"x-ms-request-charge"`): Float string representing the RU cost consumed by that page.
-- `HttpHeaders.QueryMetrics` (`"x-ms-documentdb-query-metrics"`): Semicolon-delimited key-value string containing:
-  - `retrievedDocumentCount=N`
-  - `outputDocumentCount=M`
-  - `totalExecutionTimeInMs=X`
-  - `queryCompileTimeInMs=Y`
-  - `indexLookupTimeInMs=Z`
-  - `documentLoadTimeInMs=W`
-  - `documentWriteTimeInMs=V`
-- `HttpHeaders.IndexUtilization` (`"x-ms-cosmos-index-utilization"`): Base64-encoded UTF-8 string that decodes to a JSON structure:
-  - `UtilizedSingleIndexes`: list of utilized single index paths
-  - `PotentialSingleIndexes`: list of recommended single index paths
-  - `UtilizedCompositeIndexes`: list of utilized composite index paths
-  - `PotentialCompositeIndexes`: list of recommended composite index paths
+
+* `HttpHeaders.RequestCharge` (`"x-ms-request-charge"`): Float string representing the RU cost consumed by that page.
+* `HttpHeaders.QueryMetrics` (`"x-ms-documentdb-query-metrics"`): Semicolon-delimited key-value string containing:
+  * `retrievedDocumentCount=N`
+  * `outputDocumentCount=M`
+  * `totalExecutionTimeInMs=X`
+  * `queryCompileTimeInMs=Y`
+  * `indexLookupTimeInMs=Z`
+  * `documentLoadTimeInMs=W`
+  * `documentWriteTimeInMs=V`
+* `HttpHeaders.IndexUtilization` (`"x-ms-cosmos-index-utilization"`): Base64-encoded UTF-8 string that decodes to a JSON structure:
+  * `UtilizedSingleIndexes`: list of utilized single index paths
+  * `PotentialSingleIndexes`: list of recommended single index paths
+  * `UtilizedCompositeIndexes`: list of utilized composite index paths
+  * `PotentialCompositeIndexes`: list of recommended composite index paths
 
 ### 3. Iteration and Zero-Payload Discard
-- The returned `CosmosItemPaged` is iterated by page:
+
+* The returned `CosmosItemPaged` is iterated by page:
+
   ```python
   for page in paged_results.by_page():
       for _ in page:
           pass  # Zero-Impact: payload immediately dropped
   ```
-- Cumulative RUs are tracked via the `response_hook` or page response headers. If cumulative RUs exceed `--budget-ru`, iteration breaks immediately, marking `is_partial=True` and exiting with code 2.
+
+* Cumulative RUs are tracked via the `response_hook` or page response headers. If cumulative RUs exceed `--budget-ru`, iteration breaks immediately, marking `is_partial=True` and exiting with code 2.
 
 ### 4. Exception Handling Contract
-- **Exit Code 5 (Authentication / Authorization)**:
-  - `azure.core.exceptions.ClientAuthenticationError`
-  - `azure.cosmos.exceptions.CosmosHttpResponseError` when `error.status_code in (401, 403)`
-- **Exit Code 3 (Connection / Resource Not Found)**:
-  - `azure.cosmos.exceptions.CosmosResourceNotFoundError` (HTTP 404, database/container not found)
-  - `azure.core.exceptions.ServiceRequestError` (connection refused, DNS failure)
-  - `azure.cosmos.exceptions.CosmosClientTimeoutError` / `azure.core.exceptions.ServiceRequestTimeoutError`
+
+* **Exit Code 5 (Authentication / Authorization)**:
+  * `azure.core.exceptions.ClientAuthenticationError`
+  * `azure.cosmos.exceptions.CosmosHttpResponseError` when `error.status_code in (401, 403)`
+* **Exit Code 3 (Connection / Resource Not Found)**:
+  * `azure.cosmos.exceptions.CosmosResourceNotFoundError` (HTTP 404, database/container not found)
+  * `azure.core.exceptions.ServiceRequestError` (connection refused, DNS failure)
+  * `azure.cosmos.exceptions.CosmosClientTimeoutError` / `azure.core.exceptions.ServiceRequestTimeoutError`
 
 ### Positive Consequences
 

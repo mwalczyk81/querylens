@@ -26,18 +26,19 @@ A command-line tool deployed into automated pipelines must clearly communicate e
 ## Decision Outcome
 
 Chosen option: "Option 1", because:
+
 1. **Deterministic Exit Codes**:
-   - `0`: Success — all queries executed successfully; findings (if any) are below the `--fail-on` threshold.
-   - `1`: Validation / Usage Error — invalid workload YAML, partition key format violation (length not 1..3, nulls, nested lists), missing required options.
-   - `2`: Cumulative RU Budget Exceeded — query execution aborted early due to breaching `--budget-ru`; partial results returned.
-   - `3`: Connection Error — network unreachable, DNS resolution error, Cosmos database or container not found (HTTP 404).
-   - `4`: Diagnostic Threshold Breached — at least one diagnostic finding met or exceeded the `--fail-on` severity (`critical`, `high`, `medium`).
-   - `5`: Authentication / Authorization Failure — invalid credentials, missing "Cosmos DB Built-in Data Reader" role, HTTP 401/403.
+   * `0`: Success — all queries executed successfully; findings (if any) are below the `--fail-on` threshold.
+   * `1`: Validation / Usage Error — invalid workload YAML, partition key format violation (length not 1..3, nulls, nested lists), missing required options.
+   * `2`: Cumulative RU Budget Exceeded — query execution aborted early due to breaching `--budget-ru`; partial results returned.
+   * `3`: Connection Error — network unreachable, DNS resolution error, Cosmos database or container not found (HTTP 404).
+   * `4`: Diagnostic Threshold Breached — at least one diagnostic finding met or exceeded the `--fail-on` severity (`critical`, `high`, `medium`).
+   * `5`: Authentication / Authorization Failure — invalid credentials, missing "Cosmos DB Built-in Data Reader" role, HTTP 401/403.
 2. **Dual Output Modes**:
-   - Interactive (default): Rich table sorting queries descending by RU cost, formatted latencies, partition fan-out counts, and colored diagnostic tags.
-   - Machine (`--json`): Pure JSON written to stdout adhering strictly to `run-output-schema.json` with zero extraneous console noise (logs routed to stderr).
+   * Interactive (default): Rich table sorting queries descending by RU cost, formatted latencies, partition fan-out counts, and colored diagnostic tags.
+   * Machine (`--json`): Pure JSON written to stdout adhering strictly to `run-output-schema.json` with zero extraneous console noise (logs routed to stderr).
 3. **Threshold Gate (`--fail-on`)**:
-   - Accepts `critical`, `high`, or `medium` (default off). Allows CI pipelines to enforce quality gates (e.g. block PR if any `high` severity finding is detected).
+   * Accepts `critical`, `high`, or `medium` (default off). Allows CI pipelines to enforce quality gates (e.g. block PR if any `high` severity finding is detected).
 
 ### Positive Consequences
 

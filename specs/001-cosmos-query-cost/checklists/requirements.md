@@ -32,6 +32,7 @@
 ## Notes
 
 All specification criteria have passed validation:
+
 - Functional scope matches the core user journey: profiling Cosmos DB queries by RU cost, diagnosing inefficiencies (fan-out, scan-to-return gap, high RU), and enforcing strict read-only safety with RU budget aborts.
 - Clear boundary lines established (AI suggestions, Markdown exports, log ingestion, other databases explicitly out of scope).
 - Technology details (Python, libraries, driver internals) kept in constitution and deferred to planning phase.

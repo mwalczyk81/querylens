@@ -13,6 +13,7 @@ querylens [--debug] [--version] COMMAND [ARGS]...
 ```
 
 ### Global Options
+
 * `--debug`: Enable verbose diagnostic logging and expose internal Python stack traces on errors. Defaults to `False`.
 * `--version`: Show version and exit.
 * `--help`: Show help message and exit.
@@ -24,14 +25,17 @@ querylens [--debug] [--version] COMMAND [ARGS]...
 Profiles and analyzes a workload of Cosmos DB queries.
 
 ### Usage
+
 ```text
 querylens run [OPTIONS] WORKLOAD_FILE
 ```
 
 ### Arguments
+
 * `WORKLOAD_FILE` *(required)*: Path to the YAML workload file containing queries to execute.
 
 ### Options
+
 * `-e, --endpoint TEXT`: Azure Cosmos DB account endpoint URL (e.g. `https://myaccount.documents.azure.com:443/`). Defaults to `QUERYLENS_ENDPOINT` env var.
 * `-d, --database TEXT`: Target Cosmos DB database name. Defaults to `QUERYLENS_DATABASE` env var or workload YAML `database`.
 * `-c, --container TEXT`: Target Cosmos DB container name. Defaults to `QUERYLENS_CONTAINER` env var or workload YAML `container`.
@@ -64,6 +68,7 @@ QueryLens enforces deterministic exit codes:
 ## 4. Terminal Output Format (Default)
 
 When `--json` is omitted, `querylens` outputs a Rich terminal display containing:
+
 1. **Header Panel**: Target database, container, endpoint, total queries, cumulative RU spend, and budget status.
 2. **Ranked Cost Table**:
    * `Query ID`: Identifier from workload.
@@ -80,6 +85,7 @@ When `--json` is omitted, `querylens` outputs a Rich terminal display containing
 ## 5. Machine Output Contract (`--json`)
 
 When `--json` is specified:
+
 * Output is written to `stdout`.
 * Validates against [`run-output-schema.json`](./run-output-schema.json).
 * Informational logs are redirected to `stderr` or suppressed.

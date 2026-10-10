@@ -19,6 +19,7 @@ The system follows a strict `src/` layout with a minimal [`DatabaseAdapter`](fil
 **Language/Version**: Python 3.12+ (modern type syntax, pattern matching, union operators).
 
 **Primary Dependencies & Justifications**:
+
 * `click`: Standard declarative CLI framework for command routing, argument validation, and exit code management.
 * `rich`: Terminal rendering for colorful, structured query ranking tables, summary cards, and diagnostic alerts.
 * `pydantic` (v2): High-performance schema validation, type parsing, and data modeling for workloads and execution metrics.
@@ -32,6 +33,7 @@ The system follows a strict `src/` layout with a minimal [`DatabaseAdapter`](fil
 **Storage**: None (ephemeral runtime analysis; results rendered to terminal/stdout; query payloads never persisted).
 
 **Testing**:
+
 * `pytest`: Primary test execution framework.
 * `pytest-cov`: Enforces the mandatory 85% minimum code and branch coverage gate in CI.
 * `hypothesis`: Property-based testing generating adversarial inputs to verify rule engine invariants.
@@ -44,6 +46,7 @@ The system follows a strict `src/` layout with a minimal [`DatabaseAdapter`](fil
 **Performance Goals**: CLI summary and JSON generation complete within 2 seconds of final query execution.
 
 **Constraints**:
+
 * Read-only by design: zero write/alter operations to target databases.
 * Zero-secret footprint: Entra ID RBAC for remote accounts; local emulator master key permitted only for localhost endpoints.
 * Zero data payload persistence: query result item dictionaries discarded immediately during iteration.
@@ -65,10 +68,10 @@ The system follows a strict `src/` layout with a minimal [`DatabaseAdapter`](fil
 | **II. Target Sequencing** | **PASS** | Cosmos DB for NoSQL is the initial and only adapter implementation. |
 | **II. Rule Independence** | **PASS** | Plain functions `(QueryCost, Settings) -> list[Finding]` in a simple registry; no SQL parser; operates strictly on metrics. |
 | **III. Test-First (TDD)** | **PASS** | Rule test suites authored prior to rule implementations. |
-| **III. Property-Based Testing**| **PASS** | `hypothesis` tests assert invariant safety across generated `QueryCost` values. |
-| **III. CI Coverage Gate (≥85%)**| **PASS** | CI configuration enforces `pytest --cov --cov-fail-under=85`. |
-| **III. Docker Emulator Testing**| **PASS** | Integration tests execute against `azure-cosmos-emulator` container in Docker Compose. |
-| **IV. CLI-First & Diagnostics**| **PASS** | Rich table output, `--json` flag, distinct exit codes (0–5 including separate auth error code 5 and `--fail-on <severity>`), suppressed stack traces unless `--debug`. |
+| **III. Property-Based Testing** | **PASS** | `hypothesis` tests assert invariant safety across generated `QueryCost` values. |
+| **III. CI Coverage Gate (≥85%)** | **PASS** | CI configuration enforces `pytest --cov --cov-fail-under=85`. |
+| **III. Docker Emulator Testing** | **PASS** | Integration tests execute against `azure-cosmos-emulator` container in Docker Compose. |
+| **IV. CLI-First & Diagnostics** | **PASS** | Rich table output, `--json` flag, distinct exit codes (0–5 including separate auth error code 5 and `--fail-on <severity>`), suppressed stack traces unless `--debug`. |
 | **V. Dependency Discipline** | **PASS** | Standard packages used with one-line justifications; managed via `uv` with `uv.lock`. |
 | **Code Quality & Typing** | **PASS** | Python 3.12+, `ruff` (D, DOC, S rules enabled), Google-style docstrings, `pyrefly` strict type checking. |
 

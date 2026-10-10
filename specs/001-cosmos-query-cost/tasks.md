@@ -46,11 +46,13 @@
 **Independent Test**: Provide a sample YAML workload file with 3 queries against the emulator; run CLI; verify output table ranked descending by RU cost and `--json` output matches `contracts/run-output-schema.json` without retaining document payloads.
 
 ### Tests for User Story 1 (Test-First)
+
 - [x] T011 [P] [US1] Create sample workload files and mock Cosmos DB response headers in `tests/fixtures/workloads/sample_workload.yaml` and `tests/fixtures/headers/query_metrics.txt`.
 - [x] T012 [P] [US1] Write unit tests for Cosmos DB response header metric parsing in `tests/unit/test_cosmos_parsing.py` testing extraction of `x-ms-request-charge`, `x-ms-documentdb-query-metrics` (`retrievedDocumentCount`, `outputDocumentCount`), and Base64-decoded `x-ms-cosmos-index-utilization`.
 - [x] T013 [P] [US1] Write test-first CLI exit code contract tests in `tests/unit/test_cli_exit_codes.py` verifying exit code `0` (success), exit code `1` (workload validation/format error), exit code `3` (connection error/unreachable host/missing container), and exit code `5` (auth error: invalid credentials, missing Data Reader role, HTTP 401/403).
 
 ### Implementation for User Story 1
+
 - [x] T014 [US1] Implement `CosmosAdapter` in `src/querylens/adapters/cosmos.py`:
   - Implement `collect(workload: Workload) -> Iterator[QueryCost]`.
   - Connect via `CosmosClient` with `DefaultAzureCredential` for remote endpoints; accept `COSMOS_EMULATOR_KEY` only when endpoint resolves to `localhost` or `127.0.0.1`.
@@ -73,11 +75,13 @@
 **Independent Test**: Run queries exhibiting anti-patterns; verify diagnostic findings and metric evidence in console table and JSON; verify `--fail-on <severity>` returns exit code 4 when findings meet/exceed severity.
 
 ### Tests for User Story 2 (Test-First)
+
 - [x] T018 [P] [US2] Write unit tests for rule functions in `tests/unit/test_rules.py` verifying detection logic and metric evidence for `high_ru_cost`, `cross_partition_fanout`, and `scan_to_return_gap` (verify tests fail before rule implementation).
 - [x] T019 [P] [US2] Write property-based tests using `hypothesis` in `tests/unit/test_rules_property.py` verifying rule invariants across arbitrary generated `QueryCost` values (no crashes, severity monotonicity, valid evidence keys).
 - [x] T020 [P] [US2] Write test-first unit tests for `--fail-on <severity>` in `tests/unit/test_cli_fail_on.py` verifying exit code `4` when findings are at or above specified severity (`critical`, `high`, `medium`), and exit code `0` when below or when `--fail-on` is off.
 
 ### Implementation for User Story 2
+
 - [x] T021 [P] [US2] Implement `rule_high_ru_cost` in `src/querylens/rules/high_ru.py` flagging `HIGH` severity above `high_ru_warning` and `CRITICAL` severity above `high_ru_critical`.
 - [x] T022 [P] [US2] Implement `rule_cross_partition_fanout` in `src/querylens/rules/fanout.py` flagging `MEDIUM` severity when `is_cross_partition` is `True`.
 - [x] T023 [P] [US2] Implement `rule_scan_to_return_gap` in `src/querylens/rules/scan_gap.py` flagging `HIGH` severity above `scan_gap_ratio_warning` (default 10x), `CRITICAL` severity above `scan_gap_ratio_critical` (default 100x), and `CRITICAL` severity for zero returned with `>= 1000` scanned.
@@ -96,9 +100,11 @@
 **Independent Test**: Configure `--ru-budget 15.0` on a workload consuming 30 RUs; verify execution halts mid-query, reports partial results, and exits with code 2.
 
 ### Tests for User Story 3 (Test-First)
+
 - [x] T027 [P] [US3] Write unit tests for per-page RU budget tracking and mid-query abort in `tests/unit/test_budget_guard.py` verifying that execution halts on the exact page exceeding budget, sets `is_partial=True`, and triggers exit code `2`.
 
 ### Implementation for User Story 3
+
 - [x] T028 [US3] Implement per-page cumulative RU accumulation in `src/querylens/adapters/cosmos.py`: track running cumulative RU total across pages, immediately break pagination loop when budget is exceeded, mark the active `QueryCost` with `is_partial=True`, and raise or yield `BudgetExceeded`.
 - [x] T029 [US3] Handle budget overrun in `src/querylens/cli.py`: catch budget exhaustion, render partial results table/JSON with a prominent warning panel, and exit with exit code `2`.
 
@@ -121,7 +127,8 @@
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
-```
+
+```text
 Phase 1: Setup ──► Phase 2: Foundational ──► Phase 3: User Story 1 (MVP)
                                                     │
                                                     ▼
@@ -142,6 +149,7 @@ Phase 1: Setup ──► Phase 2: Foundational ──► Phase 3: User Story 1 (
 - **Phase 6 (Polish)**: Depends on all user story phases.
 
 ### Parallel Opportunities Within Phases
+
 - **Phase 1**: `T002`, `T003`, `T004`, `T005` can run in parallel after `T001`.
 - **Phase 2**: `T007`, `T008`, `T009` can run in parallel after `T006`.
 - **Phase 3 (US1)**: `T011`, `T012`, `T013` (tests) can run in parallel; `T015`, `T016` can run in parallel.

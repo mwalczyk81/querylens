@@ -9,9 +9,11 @@ This document records technical research, verified SDK APIs, architectural trade
 ## 1. Azure Cosmos DB Python SDK Verification
 
 ### Method & Parameter Contract
+
 Cosmos DB queries are executed via [`ContainerProxy.query_items()`](https://learn.microsoft.com/en-us/python/api/azure-cosmos/azure.cosmos.container.containerproxy#azure-cosmos-container-containerproxy-query-items).
 
 Verified parameter signatures against `azure-cosmos` 4.7.0+:
+
 * `query: str` — SQL query string (e.g. `"SELECT * FROM c WHERE c.category = @cat"`).
 * `parameters: list[dict[str, Any]] | None` — Parameter bindings in format `[{"name": "@cat", "value": "electronics"}]`.
 * `partition_key: Any | None` — Explicit partition key value when scoping query to a single logical partition.
@@ -22,6 +24,7 @@ Verified parameter signatures against `azure-cosmos` 4.7.0+:
 * `response_hook: Callable[[dict[str, str], Any], None] | None` — Callback receiving raw response headers for each HTTP page response.
 
 ### Response Headers & Metrics Extraction
+
 Query execution metrics are not embedded in item payloads; they are delivered via HTTP response headers captured through `response_hook` and `container.client_connection.last_response_headers`:
 
 1. **Request Charge (`x-ms-request-charge`)**:
@@ -30,9 +33,11 @@ Query execution metrics are not embedded in item payloads; they are delivered vi
 
 2. **Query Metrics Header (`x-ms-documentdb-query-metrics`)**:
    * Semicolon-delimited key-value string:
+
      ```text
      totalExecutionTimeInMs=0.42;queryCompileTimeInMs=0.08;queryLogicalPlanBuildTimeInMs=0.05;queryPhysicalPlanBuildTimeInMs=0.06;queryOptimizationTimeInMs=0.01;queryEngineTimesInMs=0.22;systemFunctionExecutionTimeInMs=0.00;userFunctionExecutionTimeInMs=0.00;retrievedDocumentCount=1500;retrievedDocumentSizeInBytes=3024000;outputDocumentCount=3;outputDocumentSizeInBytes=450;writeOutputTimeInMs=0.01;indexUtilizationRatio=0.02
      ```
+
    * Key extracted fields:
      * `retrievedDocumentCount`: Integer count of documents scanned/loaded by storage engine.
      * `outputDocumentCount`: Integer count of documents matching predicates and returned.
@@ -41,6 +46,7 @@ Query execution metrics are not embedded in item payloads; they are delivered vi
 3. **Index Utilization Header (`x-ms-cosmos-index-utilization`)**:
    * Header value: Base64-encoded JSON UTF-8 string.
    * Decoded JSON schema:
+
      ```json
      {
        "UtilizedSingleIndexes": [{"FilterExpression": "c.category = 'electronics'", "IndexSpec": "/category/?"}],
@@ -60,24 +66,29 @@ Query execution metrics are not embedded in item payloads; they are delivered vi
 ## 2. Authentication & Data Plane Security
 
 ### Microsoft Entra ID (Production & Remote Accounts)
+
 * **Library**: `azure-identity` using `DefaultAzureCredential`.
 * **RBAC Role**: Azure Cosmos DB Data Reader (built-in role ID `00000000-0000-0000-0000-000000000001`).
 * **Connection**: `CosmosClient(url=settings.endpoint, credential=DefaultAzureCredential())`.
 * **Zero Keys**: No master keys or resource tokens in code or configuration files.
 
 ### Local Emulator Key via Environment Variable
+
 * To support offline development and CI integration tests against the Dockerized Cosmos DB Linux emulator (`https://localhost:8081`):
 * The standard emulator master key (`C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==`) is accepted **only** when the endpoint URL resolves to `localhost` or `127.0.0.1` and is supplied via `QUERYLENS_COSMOS_KEY` environment variable.
 * If a non-localhost endpoint is used with a static key, QueryLens refuses to start and mandates Entra ID authentication.
 
 ### Payload Discard & Zero-Persistence Guarantee
+
 * Results are iterated through pagination:
+
   ```python
   for page in query_iterable.by_page():
       # Consume items to force iteration, but discard immediately
       for _ in page:
           pass
   ```
+
 * Item dictionary objects are never appended to arrays, never assigned to model fields, and never passed to loggers.
 
 ---
@@ -97,12 +108,16 @@ Query execution metrics are not embedded in item payloads; they are delivered vi
 ## 4. Rule Engine Architecture & Thresholds
 
 ### Function-Based Registry Design
+
 * No heavy plugin framework, reflection, or subclass hierarchies.
 * Each rule is a pure function:
+
   ```python
   RuleFunc = Callable[[QueryCost, RuleSettings], list[Finding]]
   ```
+
 * Registered in an in-memory sequence:
+
   ```python
   RULE_REGISTRY: list[RuleFunc] = [
       rule_high_ru_cost,
@@ -112,7 +127,9 @@ Query execution metrics are not embedded in item payloads; they are delivered vi
   ```
 
 ### Configurable Thresholds via `pydantic-settings`
+
 Configured via `QUERYLENS_*` environment variables or CLI flags:
+
 * High RU:
   * Warning: `cost.request_charge > high_ru_warning` (default: 50.0 RUs)
   * Critical: `cost.request_charge > high_ru_critical` (default: 200.0 RUs)
@@ -136,6 +153,7 @@ Configured via `QUERYLENS_*` environment variables or CLI flags:
 ## 6. Testing Strategy & CI Integration
 
 ### Test Categories
+
 * **Unit Tests (`tests/unit/`)**:
   * Pydantic model validation.
   * Header string parsing (`x-ms-documentdb-query-metrics` and base64 index metrics).
@@ -150,6 +168,7 @@ Configured via `QUERYLENS_*` environment variables or CLI flags:
   * Creates test container, populates 100 documents, runs actual queries, validates RU metric capture and index header decoding.
 
 ### CI Workflow
+
 * GitHub Actions with pinned commit SHAs.
 * Steps:
   1. `ruff check --select D,DOC,S` & `ruff format --check`

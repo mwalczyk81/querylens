@@ -95,6 +95,7 @@ QueryLens enforces deterministic exit codes designed for automated CI/CD pipelin
 ## 🛡️ Security & Privacy
 
 QueryLens is built with security-first invariants:
+
 1. **Entra ID Passwordless Authentication**: Prioritizes `DefaultAzureCredential`. Master key authentication is strictly restricted to the local Cosmos DB emulator (`localhost` / `127.0.0.1`).
 2. **Least Privilege**: Only requires the Azure Cosmos DB built-in role `Cosmos DB Built-in Data Reader`.
 3. **Payload Discard**: Iterates over query results using `for _ in page: pass`, dropping item bodies immediately. QueryLens extracts only metadata headers (`x-ms-request-charge`, `x-ms-documentdb-query-metrics`, `x-ms-cosmos-index-utilization`).

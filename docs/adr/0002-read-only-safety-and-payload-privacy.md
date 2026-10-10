@@ -26,6 +26,7 @@ When profiling query performance against live or pre-production Cosmos DB contai
 ## Decision Outcome
 
 Chosen option: "Option 1", because:
+
 1. **Entra ID First**: `DefaultAzureCredential` is the primary auth path; documentation explicitly recommends assigning the built-in "Cosmos DB Built-in Data Reader" role. (Primary/secondary master keys and emulator keys are supported as fallback/local dev options).
 2. **Payload Privacy**: When enumerating query results (`CosmosItemPaged`), result item bodies are consumed and immediately discarded (`for _ in page: pass`). No document payloads are ever stored in memory, written to disk, or logged.
 3. **Per-Page Budget Guard**: The cumulative Request Units consumed are tracked across each response page. If the cumulative charge exceeds the configured `--budget-ru` ceiling, iteration halts immediately, and the query is marked `is_partial=True`, exiting with code 2.

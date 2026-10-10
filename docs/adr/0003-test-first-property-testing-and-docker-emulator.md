@@ -27,11 +27,12 @@ Diagnostic rules evaluate numerical thresholds across multiple interacting dimen
 ## Decision Outcome
 
 Chosen option: "Option 1", because:
+
 1. **Test-First Discipline**: Rule tests (e.g. `HIGH_RU`, `FANOUT`, `SCAN_GAP`) and CLI exit codes (0, 1, 2, 3, 4, 5) are authored first, establishing unambiguous behavioral contracts before production code is written.
 2. **Property-Based Verification**: `hypothesis` is utilized to generate thousands of synthetic `QueryCost` instances, verifying:
-   - Non-negative scores and valid `Severity` levels.
-   - Monotonic severity ordering (as scanned-to-returned ratio increases, severity never decreases).
-   - Boundary condition stability around thresholds (e.g. 50 RUs, 1000 RUs, 10x ratio).
+   * Non-negative scores and valid `Severity` levels.
+   * Monotonic severity ordering (as scanned-to-returned ratio increases, severity never decreases).
+   * Boundary condition stability around thresholds (e.g. 50 RUs, 1000 RUs, 10x ratio).
 3. **Cosmos DB Linux Emulator**: `docker-compose.yml` configures `mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator` enabling realistic SDK wire protocol tests in local dev and CI.
 4. **CLI Snapshots**: `syrupy` captures deterministic CLI terminal rendering (tables, colors, exit codes) to detect unintentional UX regressions.
 

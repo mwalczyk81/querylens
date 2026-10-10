@@ -11,6 +11,7 @@
 ## Clarifications
 
 ### Session 2026-10-10
+
 - Q: Should the CLI provide an option to exit with a non-zero exit code when query inefficiencies are detected? (FR-012) → A: Support `--fail-on <severity>` accepting `critical`, `high`, or `medium` (default off). Exit code 4 indicates at least one finding at or above the specified severity threshold.
 - Q: At what granularity should the cumulative RU budget be evaluated during workload execution? (FR-008) → A: Option B (Per-page evaluation: Check cumulative RUs after every page response and halt immediately mid-query, recording partial metrics and an "aborted mid-query" status).
 - Q: How should hierarchical partition keys be validated in the workload file? (FR-001) → A: `partition_key` accepts either a single scalar value (string, number, boolean) or a list of 1 to 3 scalar values. Empty lists, nested lists, and null values are strictly rejected with a descriptive validation error and exit code 1.
@@ -37,6 +38,7 @@ A backend engineer who owns a service backed by Azure Cosmos DB for NoSQL wants 
 ### User Story 2 - Diagnose Query Inefficiencies with Metric Evidence (Priority: P2)
 
 The backend engineer needs to understand *why* particular queries consume excessive RUs so they can remediate them. QueryLens evaluates each executed query against built-in diagnostic rules and flags issues with an assigned severity (e.g., Medium, High, Critical) accompanied by concrete metric evidence:
+
 - **Cross-partition fan-out**: Queries executing without a single partition key that fan out across physical/logical partitions.
 - **Excessive document scan gap**: Queries where the count of documents scanned significantly exceeds the count of documents returned (indicating missing or underutilized indexing).
 - **High RU consumption**: Queries whose total RU cost exceeds normal operating thresholds.

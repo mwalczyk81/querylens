@@ -51,6 +51,7 @@ $env:QUERYLENS_CONTAINER = "orders"
 ```
 
 Initialize test seed data (if running manual validation):
+
 ```powershell
 uv run python -m tests.scripts.seed_emulator
 ```
@@ -103,6 +104,7 @@ uv run querylens run workload.yaml
 ```
 
 **Expected Outcome**:
+
 * A Rich terminal panel appears with execution summary.
 * A ranked table displays all queries sorted descending by RU charge.
 * `fanout-unindexed-status` is flagged with `[WARN] Cross-Partition Fan-Out` and `[CRIT] High RU Cost`.
@@ -120,6 +122,7 @@ uv run querylens run workload.yaml --json > output.json
 ```
 
 **Expected Outcome**:
+
 * `output.json` contains valid JSON adhering to [`run-output-schema.json`](./contracts/run-output-schema.json).
 * Per-query metrics contain exact `request_charge`, `latency_ms`, `documents_scanned`, and `documents_returned`.
 * Findings array contains `rule_id`, `severity`, and quantitative `evidence`.
@@ -135,6 +138,7 @@ uv run querylens run workload.yaml --ru-budget 15.0
 ```
 
 **Expected Outcome**:
+
 * Execution halts after the first or second query.
 * Terminal output displays a warning: `[WARNING] Execution halted: Cumulative RU budget (15.0 RUs) exceeded`.
 * Partial results for completed queries are shown.

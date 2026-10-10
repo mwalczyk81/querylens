@@ -9,6 +9,7 @@ This document formalizes the Pydantic v2 domain models, schema constraints, and 
 ## 1. Domain Entities & Schemas
 
 ### Severity Enum
+
 ```python
 from enum import StrEnum
 
@@ -36,12 +37,16 @@ class Severity(StrEnum):
 ### Workload Ingestion Models (`model.py`)
 
 #### `QueryParameter`
+
 Represents an individual SQL query parameter binding.
+
 * `name: str` — Parameter name (e.g., `"@category"`). Must start with `@`.
 * `value: Any` — Bound parameter literal value (string, integer, float, boolean, or null).
 
 #### `QueryDefinition`
+
 Represents an individual query statement in a workload.
+
 * `id: str` — Unique identifier or descriptive label for the query within the workload.
 * `query: str` — SQL query statement (e.g., `"SELECT * FROM c WHERE c.active = true"`).
 * `parameters: list[QueryParameter]` — Optional list of parameter bindings (defaults to empty).
@@ -53,7 +58,9 @@ Represents an individual query statement in a workload.
     * Empty lists (`[]`), nested lists, and null (`None`) values within or as the list are strictly rejected with a validation error resulting in exit code 1.
 
 #### `Workload`
+
 The root specification model parsed from the YAML workload file.
+
 * `version: str` — Workload format version (default: `"1"`).
 * `database: str | None` — Target Cosmos DB database name (can be overridden via CLI).
 * `container: str | None` — Target Cosmos DB container name (can be overridden via CLI).
@@ -65,14 +72,18 @@ The root specification model parsed from the YAML workload file.
 ### Execution & Cost Models (`model.py`)
 
 #### `IndexUtilization`
+
 Structured representation of index utilization extracted from `x-ms-cosmos-index-utilization`.
+
 * `utilized_single: list[dict[str, Any]]` — Index paths successfully used.
 * `potential_single: list[dict[str, Any]]` — Recommended single indexes that would improve performance.
 * `utilized_composite: list[dict[str, Any]]` — Composite index specifications utilized.
 * `potential_composite: list[dict[str, Any]]` — Recommended composite indexes.
 
 #### `QueryCost`
+
 The core engine contract produced by database adapters.
+
 * `query_id: str` — Identifier referencing `QueryDefinition.id`.
 * `query_text: str` — The query string executed.
 * `request_charge: float` — Total RUs consumed (must be `>= 0.0`).
@@ -89,7 +100,9 @@ The core engine contract produced by database adapters.
 ### Diagnostic Rule Models (`model.py`)
 
 #### `Finding`
+
 An individual performance issue detected on an executed query.
+
 * `rule_id: str` — Unique rule code (e.g., `"QL001"`, `"QL002"`, `"QL003"`).
 * `rule_name: str` — Human-readable rule title (e.g., `"High RU Cost"`, `"Cross-Partition Fan-Out"`, `"Scan-to-Return Gap"`).
 * `severity: Severity` — Finding severity level (`INFO`, `WARNING`, `CRITICAL`).
@@ -97,12 +110,16 @@ An individual performance issue detected on an executed query.
 * `evidence: dict[str, Any]` — Quantitative proof metrics (e.g., `{"request_charge": 254.2, "threshold": 50.0}`).
 
 #### `QueryResultSummary`
+
 Combines an executed query's cost metrics with its diagnostic findings.
+
 * `cost: QueryCost` — The raw execution metrics.
 * `findings: list[Finding]` — Collection of diagnostic findings for this query.
 
 #### `WorkloadRunSummary`
+
 The aggregate report artifact produced by the CLI.
+
 * `timestamp: str` — ISO 8601 execution timestamp.
 * `database: str` — Target database name.
 * `container: str` — Target container name.
