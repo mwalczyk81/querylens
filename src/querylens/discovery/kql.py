@@ -72,7 +72,6 @@ def build_shapes_query(top_n: int = 20, account_filter: str | None = None) -> st
         client_ip = take_any({CLIENT_IP_EXPR}),
         aad_principal = take_any({AAD_PRINCIPAL_EXPR})
       by activityId_g = {ACTIVITY_ID_EXPR};
-
 let queries = AzureDiagnostics
     | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
 {acct_clause}    | extend
@@ -89,12 +88,10 @@ let queries = AzureDiagnostics
         sample_query_text = take_any(raw_text),
         returned_rows = sum(returned_count)
       by activityId_g = {ACTIVITY_ID_EXPR};
-
 let joined = materialize(
     queries
     | join kind=inner reqs on activityId_g
 );
-
 let top_shapes = materialize(
     joined
     | summarize
@@ -107,7 +104,6 @@ let top_shapes = materialize(
       by db_name, coll_name, shape_id
     | top {top_n} by total_ru desc
 );
-
 top_shapes
 | project
     db_name, coll_name, shape_id, sample_text,
@@ -137,14 +133,11 @@ def build_totals_query(account_filter: str | None = None) -> str:
         earliest_time = min(TimeGenerated)
       by activityId_g = {ACTIVITY_ID_EXPR}
 );
-
 let queries = AzureDiagnostics
     | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
 {acct_clause}    | summarize by activityId_g = {ACTIVITY_ID_EXPR};
-
 let window_total = toscalar(reqs | summarize sum(total_charge));
 let min_time = toscalar(reqs | summarize min(earliest_time));
-
 queries
 | join kind=inner reqs on activityId_g
 | summarize
@@ -172,7 +165,6 @@ def build_preflight_check_query(account_filter: str | None = None) -> str:
 
     return f"""let base = AzureDiagnostics
     | where ResourceProvider =~ "MICROSOFT.DOCUMENTDB"{acct_filter_line};
-
 let counts = base
 | summarize
     dataplane_count = countif(Category == "DataPlaneRequests"),
@@ -189,13 +181,11 @@ let counts = base
     has_aad_str = countif(isnotempty({AAD_PRINCIPAL_STR_EXPR})),
     has_client_ip = countif(isnotempty({CLIENT_IP_EXPR})),
     has_useragent = countif(isnotempty({USER_AGENT_EXPR}));
-
 let auth = toscalar(
     base
     | where isnotempty({AUTH_TOKEN_TYPE_EXPR})
     | summarize count() by auth_type = {AUTH_TOKEN_TYPE_EXPR}
     | summarize make_bag(bag_pack(auth_type, count_))
 );
-
 counts
 | extend auth_breakdown = auth"""

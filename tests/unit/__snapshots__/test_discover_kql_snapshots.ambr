@@ -1,6 +1,7 @@
 # serializer version: 1
 # name: test_discover_kql_default_snapshots
   '''
+  // Run each query separately in the Logs editor.
   // === Query 1: Top Query Shapes Query ===
   let reqs = AzureDiagnostics
       | where Category == "DataPlaneRequests" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
@@ -10,7 +11,6 @@
           client_ip = take_any(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), "")),
           aad_principal = take_any(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))
         by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
-  
   let queries = AzureDiagnostics
       | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
       | extend
@@ -27,12 +27,10 @@
           sample_query_text = take_any(raw_text),
           returned_rows = sum(returned_count)
         by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
-  
   let joined = materialize(
       queries
       | join kind=inner reqs on activityId_g
   );
-  
   let top_shapes = materialize(
       joined
       | summarize
@@ -45,7 +43,6 @@
         by db_name, coll_name, shape_id
       | top 20 by total_ru desc
   );
-  
   top_shapes
   | project
       db_name, coll_name, shape_id, sample_text,
@@ -61,14 +58,11 @@
           earliest_time = min(TimeGenerated)
         by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "")
   );
-  
   let queries = AzureDiagnostics
       | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
       | summarize by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
-  
   let window_total = toscalar(reqs | summarize sum(total_charge));
   let min_time = toscalar(reqs | summarize min(earliest_time));
-  
   queries
   | join kind=inner reqs on activityId_g
   | summarize
@@ -82,6 +76,7 @@
 # ---
 # name: test_discover_kql_with_account_snapshots
   '''
+  // Run each query separately in the Logs editor.
   // === Query 1: Top Query Shapes Query ===
   let reqs = AzureDiagnostics
       | where Category == "DataPlaneRequests" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
@@ -92,7 +87,6 @@
           client_ip = take_any(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), "")),
           aad_principal = take_any(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))
         by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
-  
   let queries = AzureDiagnostics
       | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
       | where _ResourceId endswith "/databaseaccounts/cosmos-prod-eastus"
@@ -110,12 +104,10 @@
           sample_query_text = take_any(raw_text),
           returned_rows = sum(returned_count)
         by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
-  
   let joined = materialize(
       queries
       | join kind=inner reqs on activityId_g
   );
-  
   let top_shapes = materialize(
       joined
       | summarize
@@ -128,7 +120,6 @@
         by db_name, coll_name, shape_id
       | top 10 by total_ru desc
   );
-  
   top_shapes
   | project
       db_name, coll_name, shape_id, sample_text,
@@ -145,15 +136,12 @@
           earliest_time = min(TimeGenerated)
         by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "")
   );
-  
   let queries = AzureDiagnostics
       | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
       | where _ResourceId endswith "/databaseaccounts/cosmos-prod-eastus"
       | summarize by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
-  
   let window_total = toscalar(reqs | summarize sum(total_charge));
   let min_time = toscalar(reqs | summarize min(earliest_time));
-  
   queries
   | join kind=inner reqs on activityId_g
   | summarize

@@ -22,6 +22,7 @@ def test_cli_print_kql_success() -> None:
         ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc", "--print-kql"],
     )
     assert result.exit_code == 0
+    assert "Run each query separately in the Logs editor." in result.output
     assert "Query 1: Top Query Shapes Query" in result.output
     assert "Query 2: Window & Attributed Totals Query" in result.output
 

@@ -72,3 +72,15 @@ def test_build_preflight_check_query_with_account() -> None:
     """Verify build_preflight_check_query injects account filter safely."""
     query = build_preflight_check_query(account_filter="my-cosmos-account")
     assert '| where _ResourceId endswith "/databaseaccounts/my-cosmos-account"' in query
+
+
+def test_queries_have_no_internal_blank_lines() -> None:
+    """Verify generated KQL queries have no internal blank lines (for Azure portal)."""
+    for query in [
+        build_shapes_query(top_n=20),
+        build_totals_query(),
+        build_preflight_check_query(),
+    ]:
+        lines = query.split("\n")
+        for line in lines:
+            assert line != "", "KQL query contains empty line that would break portal execution"

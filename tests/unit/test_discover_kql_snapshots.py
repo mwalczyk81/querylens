@@ -11,6 +11,7 @@ def test_discover_kql_default_snapshots(snapshot: SnapshotAssertion) -> None:
     totals_kql = build_totals_query()
 
     combined_kql = (
+        f"// Run each query separately in the Logs editor.\n"
         f"// === Query 1: Top Query Shapes Query ===\n{shapes_kql}\n\n"
         f"// === Query 2: Window & Attributed Totals Query ===\n{totals_kql}\n"
     )
@@ -23,6 +24,7 @@ def test_discover_kql_with_account_snapshots(snapshot: SnapshotAssertion) -> Non
     totals_kql = build_totals_query(account_filter="cosmos-prod-eastus")
 
     combined_kql = (
+        f"// Run each query separately in the Logs editor.\n"
         f"// === Query 1: Top Query Shapes Query ===\n{shapes_kql}\n\n"
         f"// === Query 2: Window & Attributed Totals Query ===\n{totals_kql}\n"
     )

@@ -132,6 +132,7 @@ def discover(
         shapes_kql = build_shapes_query(top_n=options.top_n, account_filter=options.account_filter)
         totals_kql = build_totals_query(account_filter=options.account_filter)
 
+        click.echo("// Run each query separately in the Logs editor.")
         click.echo("// === Query 1: Top Query Shapes Query ===")
         click.echo(shapes_kql)
         click.echo("\n// === Query 2: Window & Attributed Totals Query ===")
