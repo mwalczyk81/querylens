@@ -188,7 +188,23 @@ def seed(
         }
         docs.append(large_doc)
 
-    # 4. Upsert documents into both containers
+    # 4. Extra documents in 'cat-0' so single-partition queries exercise
+    # multi-page pagination (> 100 docs)
+    for k in range(100):
+        extra_doc = {
+            "id": f"item-cat0-page-{k:03d}",
+            "category": "cat-0",
+            "name": f"Product-cat0-page-{k:03d}",
+            "status": "active" if k % 4 != 0 else "inactive",
+            "price": round(rng.uniform(5.0, 500.0), 2),
+            "quantity": rng.randint(1, 100),
+            "doc_type": "standard",
+            "unindexed_tag": f"common_{k % 10}",
+            "payload": "s" * 200,
+        }
+        docs.append(extra_doc)
+
+    # 5. Upsert documents into both containers
     total_docs = len(docs)
     print(
         f"Upserting {total_docs} documents into '{container_default_name}' "

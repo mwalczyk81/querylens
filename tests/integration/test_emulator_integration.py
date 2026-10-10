@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 import pytest
 import yaml
+from azure.cosmos import CosmosClient
 from seed_emulator import EMULATOR_KEY, seed
 
 from querylens.adapters.cosmos import CosmosAdapter
@@ -100,13 +101,13 @@ class TestCosmosAdapterEmulatorIntegration:
         assert fanout_query.is_cross_partition is True
 
     def test_single_partition_multi_page_not_flagged(self, setup_emulator_container: None) -> None:
-        """Assert that single-partition multi-page queries are NOT flagged as cross-partition."""
+        """Assert multi-page queries with partition_key avoid QL002 and match direct run."""
         settings = Settings(
             endpoint=EMULATOR_ENDPOINT,
             cosmos_key=EMULATOR_KEY,
             database="querylens_dev",
             container="items",
-            max_item_count=2,  # Force small page size to ensure multiple pages
+            max_item_count=10,  # Force small page size to ensure multiple pages
         )
         adapter = CosmosAdapter(settings)
         workload = Workload(
@@ -126,8 +127,38 @@ class TestCosmosAdapterEmulatorIntegration:
         assert len(results) == 1
         query_cost = results[0]
         assert query_cost.query_id == "q_single_partition_pages"
-        assert query_cost.documents_returned >= 5
+        assert query_cost.documents_returned > 100
         assert query_cost.is_cross_partition is False
+
+        # Verify QL002 is not triggered
+        findings = evaluate_rules(query_cost, settings)
+        finding_rule_ids = {f.rule_id for f in findings}
+        assert "QL002" not in finding_rule_ids
+
+        # Compare with direct SDK query_items run with the same query and partition_key
+        client = CosmosClient(
+            url=EMULATOR_ENDPOINT,
+            credential=EMULATOR_KEY,
+            connection_verify=False,
+        )
+        container = client.get_database_client("querylens_dev").get_container_client("items")
+        direct_headers: list[dict[str, str]] = []
+        direct_items = list(
+            container.query_items(
+                query="SELECT * FROM c WHERE c.category = @cat",
+                parameters=[{"name": "@cat", "value": "cat-0"}],
+                partition_key="cat-0",
+                max_item_count=10,
+                response_hook=lambda h, _: direct_headers.append(dict(h)),
+            )
+        )
+        assert len(direct_items) == query_cost.documents_returned
+        assert len(direct_headers) > 1  # Confirms multi-page iteration occurred
+        direct_ru = round(
+            sum(float(h.get("x-ms-request-charge", 0.0)) for h in direct_headers),
+            2,
+        )
+        assert query_cost.request_charge == direct_ru
 
     def test_example_workload_findings(self, setup_emulator_container: None) -> None:
         """Verify examples/workload.yaml queries trigger expected findings and clean controls."""
@@ -184,6 +215,7 @@ class TestCosmosAdapterEmulatorIntegration:
         f_single = evaluate_rules(r_single, settings)
         assert len(f_single) == 0
         assert r_single.is_cross_partition is False
+        assert r_single.documents_returned > 100
 
         # 6. Bad syntax query: returns 0 RU row with captured error message, NO findings
         r_bad = results_by_id["bad_syntax_error"]
