@@ -9,12 +9,15 @@ Populates local Cosmos DB emulator with reproducible workloads for testing and p
 
 import argparse
 import random
+import sys
 import time
+import warnings
 from contextlib import suppress
 from typing import Any
 from urllib.parse import urlparse
 
 from azure.cosmos import CosmosClient, PartitionKey
+from urllib3.exceptions import InsecureRequestWarning
 
 # Public well-known Microsoft Azure Cosmos DB Emulator master key.
 # Published in official Microsoft documentation: https://learn.microsoft.com/azure/cosmos-db/emulator
@@ -76,6 +79,13 @@ def seed(
         ValueError: If endpoint is not localhost or 127.0.0.1.
     """
     validate_local_endpoint(endpoint)
+    sys.stderr.write("TLS verification disabled for local emulator\n")
+    sys.stderr.flush()
+    warnings.filterwarnings(
+        "ignore",
+        category=InsecureRequestWarning,
+        message=r".*(?:localhost|127\.0\.0\.1).*",
+    )
 
     print(f"Connecting to Cosmos DB emulator at {endpoint}...")
     client = CosmosClient(

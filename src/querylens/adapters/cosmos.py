@@ -7,6 +7,8 @@ and HttpHeaders constants.
 
 import base64
 import json
+import sys
+import warnings
 from collections.abc import Iterator, Mapping
 from typing import Any
 from urllib.parse import urlparse
@@ -20,6 +22,7 @@ from azure.cosmos.exceptions import (
 )
 from azure.cosmos.http_constants import HttpHeaders
 from azure.identity import DefaultAzureCredential
+from urllib3.exceptions import InsecureRequestWarning
 
 from querylens.config import Settings
 from querylens.model import IndexUtilization, QueryCost, QueryDefinition, Workload
@@ -199,6 +202,15 @@ class CosmosAdapter:
             credential = cosmos_key
         else:
             credential = DefaultAzureCredential()
+
+        if is_local:
+            sys.stderr.write("TLS verification disabled for local emulator\n")
+            sys.stderr.flush()
+            warnings.filterwarnings(
+                "ignore",
+                category=InsecureRequestWarning,
+                message=r".*(?:localhost|127\.0\.0\.1).*",
+            )
 
         self.client = CosmosClient(
             url=endpoint,

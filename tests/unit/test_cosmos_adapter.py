@@ -1,10 +1,12 @@
 """Unit tests for CosmosAdapter security rules, initialization, and execution."""
 
+import warnings
 from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
 import pytest
 from azure.cosmos.exceptions import CosmosHttpResponseError
+from urllib3.exceptions import InsecureRequestWarning
 
 from querylens.adapters.cosmos import CosmosAdapter
 from querylens.config import Settings
@@ -202,3 +204,46 @@ class TestCosmosAdapter:
             with pytest.raises(CosmosHttpResponseError) as exc_info:
                 list(adapter.collect(workload))
             assert exc_info.value.status_code == 500
+
+    def test_init_local_emulator_emits_stderr_and_suppresses_warning(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Emit stderr notice and suppress InsecureRequestWarning for localhost."""
+        settings = Settings(endpoint="https://localhost:8081/")
+        with patch("querylens.adapters.cosmos.CosmosClient"):
+            CosmosAdapter(settings)
+
+        captured = capsys.readouterr()
+        assert "TLS verification disabled for local emulator" in captured.err
+
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.warn(
+                "Unverified HTTPS request is being made to host 'localhost'.",
+                InsecureRequestWarning,
+                stacklevel=2,
+            )
+            assert len(recorded) == 0
+
+    def test_init_remote_endpoint_does_not_suppress_warning(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Do not emit notice and do not suppress InsecureRequestWarning on remote endpoints."""
+        settings = Settings(endpoint="https://myaccount.documents.azure.com:443/")
+        with (
+            patch("querylens.adapters.cosmos.CosmosClient"),
+            patch("querylens.adapters.cosmos.DefaultAzureCredential"),
+        ):
+            CosmosAdapter(settings)
+
+        captured = capsys.readouterr()
+        assert "TLS verification disabled for local emulator" not in captured.err
+
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            warnings.warn(
+                "Unverified HTTPS request is being made to host 'remote.azure.com'.",
+                InsecureRequestWarning,
+                stacklevel=2,
+            )
+            assert len(recorded) == 1
+            assert "remote.azure.com" in str(recorded[0].message)
