@@ -1,0 +1,15 @@
+# serializer version: 1
+# name: TestCliSnapshots.test_cli_error_query_snapshot
+  dict({
+    'documents_returned': 0,
+    'documents_scanned': 0,
+    'error_message': "Syntax error near 'FROM'",
+    'index_metrics': None,
+    'is_cross_partition': False,
+    'is_partial': False,
+    'latency_ms': 0.0,
+    'query_id': 'q_bad_syntax',
+    'query_text': 'SELECT FROM c',
+    'request_charge': 0.0,
+  })
+# ---

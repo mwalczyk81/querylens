@@ -75,6 +75,8 @@ def render_console_report(summary: WorkloadRunSummary, console: Console | None =
         fan_out_str = "[bold red]Yes[/bold red]" if cost.is_cross_partition else "[green]No[/green]"
 
         finding_badges: list[str] = []
+        if cost.error_message:
+            finding_badges.append("[bold red][ERROR][/bold red]")
         for finding in res.findings:
             if finding.severity == Severity.CRITICAL:
                 finding_badges.append(f"[bold red][CRIT] {finding.rule_id}[/bold red]")
@@ -101,13 +103,17 @@ def render_console_report(summary: WorkloadRunSummary, console: Console | None =
     console.print(table)
 
     # Detailed Findings Breakdown
-    has_findings = any(r.findings for r in sorted_results)
-    if has_findings:
+    has_details = any(r.findings or r.cost.error_message for r in sorted_results)
+    if has_details:
         console.print("\n[bold]Diagnostic Details:[/bold]")
         for res in sorted_results:
-            if not res.findings:
+            if not res.findings and not res.cost.error_message:
                 continue
             console.print(f"\n[cyan]• Query: {res.cost.query_id}[/cyan]")
+            if res.cost.error_message:
+                console.print(
+                    f"  - [bold red]Query Execution Error:[/bold red] {res.cost.error_message}"
+                )
             for f in res.findings:
                 severity_tag = f"[{f.severity.value}]"
                 console.print(

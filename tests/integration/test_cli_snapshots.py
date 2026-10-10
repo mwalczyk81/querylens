@@ -120,3 +120,59 @@ queries:
         assert parsed["total_queries"] == 1
         assert parsed["completed_queries"] == 1
         assert parsed["results"][0]["cost"]["query_id"] == "q1-fast"
+
+    @patch("querylens.cli.get_adapter")
+    def test_cli_error_query_snapshot(
+        self,
+        mock_get_adapter: MagicMock,
+        tmp_path: pytest.TempPathFactory,
+        snapshot: SnapshotAssertion,
+    ) -> None:
+        """Capture deterministic snapshot of CLI table and --json output for query with error."""
+        workload_yaml = tmp_path / "workload_error.yaml"  # pyrefly: ignore
+        workload_yaml.write_text(
+            """
+version: "1"
+database: "snap-db"
+container: "orders"
+queries:
+  - id: "q_bad_syntax"
+    query: "SELECT FROM c"
+""",
+            encoding="utf-8",
+        )
+
+        mock_adapter = MagicMock()
+        mock_adapter.collect.return_value = [
+            QueryCost(
+                query_id="q_bad_syntax",
+                query_text="SELECT FROM c",
+                request_charge=0.0,
+                latency_ms=0.0,
+                documents_scanned=0,
+                documents_returned=0,
+                is_cross_partition=False,
+                error_message="Syntax error near 'FROM'",
+            )
+        ]
+        mock_get_adapter.return_value = mock_adapter
+
+        runner = CliRunner(env={"COLUMNS": "120"})
+        # Test table rendering
+        table_result = runner.invoke(
+            cli,
+            ["run", str(workload_yaml), "--endpoint", "https://localhost:8081/"],
+        )
+        assert table_result.exit_code == 0
+        assert "[ERROR]" in table_result.output
+        assert "Syntax error near 'FROM'" in table_result.output
+
+        # Test JSON rendering
+        json_result = runner.invoke(
+            cli,
+            ["run", str(workload_yaml), "--endpoint", "https://localhost:8081/", "--json"],
+        )
+        assert json_result.exit_code == 0
+        parsed = json.loads(json_result.output)
+        assert parsed["results"][0]["cost"]["error_message"] == "Syntax error near 'FROM'"
+        assert parsed["results"][0]["cost"] == snapshot

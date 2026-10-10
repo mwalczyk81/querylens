@@ -136,3 +136,35 @@ class TestReports:
         assert "EXCEEDED" in output
         assert "Execution aborted: Cumulative RU budget ceiling reached" in output
         assert "(partial)" in output
+
+    def test_render_console_report_with_query_error(self) -> None:
+        """Render console report with query execution error showing [ERROR] badge and message."""
+        console = Console(record=True, width=120)
+        error_cost = QueryCost(
+            query_id="q_bad",
+            query_text="SELECT FROM c",
+            request_charge=0.0,
+            latency_ms=0.0,
+            documents_scanned=0,
+            documents_returned=0,
+            is_cross_partition=False,
+            error_message="Syntax error near 'FROM'",
+        )
+        summary = WorkloadRunSummary(
+            timestamp="2026-10-10T12:00:00Z",
+            database="test-db",
+            container="orders",
+            total_queries=1,
+            completed_queries=1,
+            total_ru_consumed=0.0,
+            ru_budget=None,
+            budget_exceeded=False,
+            results=[QueryResultSummary(cost=error_cost, findings=[])],
+        )
+
+        render_console_report(summary, console=console)
+        output = console.export_text()
+
+        assert "[ERROR]" in output
+        assert "Diagnostic Details:" in output
+        assert "Query Execution Error: Syntax error near 'FROM'" in output
