@@ -81,9 +81,16 @@ jobs:
           - 10252:10252
           - 10253:10253
           - 10254:10254
+          - 10255:10255
         env:
-          AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 2
+          AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 3
           AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: "false"
+        options: >-
+          --health-cmd "curl -k -f https://localhost:8081/_explorer/emulator.pem || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+          --health-start-period 30s
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -101,7 +108,9 @@ jobs:
 
       - name: Wait for Emulator Health
         run: |
-          timeout 120 bash -c 'until curl -k https://localhost:8081/_explorer/emulator.pem; do sleep 5; done' || true
+          timeout 120 bash -c 'until curl -k -f https://localhost:8081/_explorer/emulator.pem; do sleep 5; done'
 
       - name: Run Integration Tests
+        env:
+          QUERYLENS_REQUIRE_EMULATOR: "1"
         run: uv run pytest -m integration -v

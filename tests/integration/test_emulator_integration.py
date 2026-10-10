@@ -1,5 +1,6 @@
 """Integration tests connecting to local Cosmos DB Linux emulator (T030)."""
 
+import os
 import socket
 from urllib.parse import urlparse
 
@@ -41,6 +42,11 @@ class TestCosmosAdapterEmulatorIntegration:
     def setup_emulator_container(cls) -> None:
         """Create integration test database and container on emulator."""
         if not is_emulator_reachable():
+            if os.getenv("QUERYLENS_REQUIRE_EMULATOR") == "1":
+                pytest.fail(
+                    "Cosmos DB emulator is required (QUERYLENS_REQUIRE_EMULATOR=1) "
+                    "but is not reachable on localhost:8081"
+                )
             pytest.skip("Cosmos DB emulator is not running on localhost:8081")
 
         client = CosmosClient(
