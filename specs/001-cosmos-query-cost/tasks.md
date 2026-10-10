@@ -110,11 +110,11 @@
 
 **Purpose**: Integration testing with local emulator, CI/CD pipeline automation, and end-to-end documentation validation.
 
-- [ ] T030 [P] Implement integration test suite in `tests/integration/test_cosmos_adapter.py` executing against the Dockerized Cosmos DB emulator (creating test container, seeding sample documents, verifying read-only execution, metric extraction, and header decoding).
-- [ ] T031 [P] Implement CLI snapshot tests using `syrupy` in `tests/integration/test_cli_snapshots.py` asserting stability of Rich terminal output and `--json` schemas.
-- [ ] T032 [P] Create GitHub Actions workflow in `.github/workflows/ci.yml` running `ruff check`, `ruff format --check`, `pyrefly check`, `pytest --cov=src/querylens --cov-fail-under=85`, `pip-audit`, CodeQL, and `gitleaks`, plus a separate emulator integration test job.
-- [ ] T033 [P] Configure Dependabot in `.github/dependabot.yml` with GitHub Actions pinned to commit SHAs.
-- [ ] T034 Execute end-to-end validation scenarios from `specs/001-cosmos-query-cost/quickstart.md` against the running emulator and verify all exit codes (`0`, `1`, `2`, `3`, `4`, `5`).
+- [x] T030 [P] Implement integration test suite in `tests/integration/test_cosmos_adapter.py` executing against the Dockerized Cosmos DB emulator (creating test container, seeding sample documents, verifying read-only execution, metric extraction, and header decoding).
+- [x] T031 [P] Implement CLI snapshot tests using `syrupy` in `tests/integration/test_cli_snapshots.py` asserting stability of Rich terminal output and `--json` schemas.
+- [x] T032 [P] Create GitHub Actions workflow in `.github/workflows/ci.yml` running `ruff check`, `ruff format --check`, `pyrefly check`, `pytest --cov=src/querylens --cov-fail-under=85`, `pip-audit`, CodeQL, and `gitleaks`, plus a separate emulator integration test job.
+- [x] T033 [P] Configure Dependabot in `.github/dependabot.yml` with GitHub Actions pinned to commit SHAs.
+- [x] T034 Execute end-to-end validation scenarios from `specs/001-cosmos-query-cost/quickstart.md` against the running emulator and verify all exit codes (`0`, `1`, `2`, `3`, `4`, `5`).
 
 ---
 

@@ -82,6 +82,9 @@ convention = "google"
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-ra --strict-markers"
+markers = [
+    "integration: mark test as integration test against emulator or external service",
+]
 
 [tool.coverage.run]
 source = ["src/querylens"]

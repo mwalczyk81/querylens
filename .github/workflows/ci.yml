@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  quality:
+    name: Code Quality & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Ruff Lint Check
+        run: uv run ruff check .
+
+      - name: Ruff Format Check
+        run: uv run ruff format --check .
+
+      - name: Pyrefly Strict Type Check
+        run: uv run pyrefly check
+
+      - name: Unit Tests & Coverage Gate (85%)
+        run: uv run pytest --cov=src/querylens --cov-fail-under=85 -m "not integration"
+
+  security:
+    name: Security Scans
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies and pip-audit
+        run: |
+          uv sync --extra dev
+          uv pip install pip-audit
+
+      - name: Dependency Vulnerability Audit
+        run: uv run pip-audit
+
+  integration:
+    name: Cosmos DB Emulator Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      cosmos-emulator:
+        image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+        ports:
+          - 8081:8081
+          - 10251:10251
+          - 10252:10252
+          - 10253:10253
+          - 10254:10254
+        env:
+          AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 2
+          AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: "false"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Wait for Emulator Health
+        run: |
+          timeout 120 bash -c 'until curl -k https://localhost:8081/_explorer/emulator.pem; do sleep 5; done' || true
+
+      - name: Run Integration Tests
+        run: uv run pytest -m integration -v

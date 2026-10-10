@@ -237,3 +237,9 @@ def run(
             sys.exit(4)
 
     sys.exit(0)
+
+
+main = cli
+
+if __name__ == "__main__":
+    main()
