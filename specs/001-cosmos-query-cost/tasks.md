@@ -96,11 +96,11 @@
 **Independent Test**: Configure `--ru-budget 15.0` on a workload consuming 30 RUs; verify execution halts mid-query, reports partial results, and exits with code 2.
 
 ### Tests for User Story 3 (Test-First)
-- [ ] T027 [P] [US3] Write unit tests for per-page RU budget tracking and mid-query abort in `tests/unit/test_budget_guard.py` verifying that execution halts on the exact page exceeding budget, sets `is_partial=True`, and triggers exit code `2`.
+- [x] T027 [P] [US3] Write unit tests for per-page RU budget tracking and mid-query abort in `tests/unit/test_budget_guard.py` verifying that execution halts on the exact page exceeding budget, sets `is_partial=True`, and triggers exit code `2`.
 
 ### Implementation for User Story 3
-- [ ] T028 [US3] Implement per-page cumulative RU accumulation in `src/querylens/adapters/cosmos.py`: track running cumulative RU total across pages, immediately break pagination loop when budget is exceeded, mark the active `QueryCost` with `is_partial=True`, and raise or yield `BudgetExceeded`.
-- [ ] T029 [US3] Handle budget overrun in `src/querylens/cli.py`: catch budget exhaustion, render partial results table/JSON with a prominent warning panel, and exit with exit code `2`.
+- [x] T028 [US3] Implement per-page cumulative RU accumulation in `src/querylens/adapters/cosmos.py`: track running cumulative RU total across pages, immediately break pagination loop when budget is exceeded, mark the active `QueryCost` with `is_partial=True`, and raise or yield `BudgetExceeded`.
+- [x] T029 [US3] Handle budget overrun in `src/querylens/cli.py`: catch budget exhaustion, render partial results table/JSON with a prominent warning panel, and exit with exit code `2`.
 
 **Checkpoint**: All three user stories are complete and independently testable.
 
