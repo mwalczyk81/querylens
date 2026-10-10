@@ -2,6 +2,7 @@
 
 from rich.box import ROUNDED
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -110,9 +111,8 @@ def render_console_report(summary: WorkloadRunSummary, console: Console | None =
                 continue
             console.print(f"\n[cyan]• Query: {res.cost.query_id}[/cyan]")
             if res.cost.error_message:
-                console.print(
-                    f"  - [bold red]Query Execution Error:[/bold red] {res.cost.error_message}"
-                )
+                escaped_error = escape(res.cost.error_message)
+                console.print(f"  - [bold red]Query Execution Error:[/bold red] {escaped_error}")
             for f in res.findings:
                 severity_tag = f"[{f.severity.value}]"
                 console.print(

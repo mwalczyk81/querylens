@@ -6,13 +6,16 @@ and HttpHeaders constants.
 """
 
 import base64
+import contextlib
 import json
+import re
 import sys
 import warnings
 from collections.abc import Iterator, Mapping
 from typing import Any
 from urllib.parse import urlparse
 
+import structlog
 from azure.core.exceptions import ClientAuthenticationError, ServiceRequestError
 from azure.cosmos import CosmosClient
 from azure.cosmos.exceptions import (
@@ -26,6 +29,8 @@ from urllib3.exceptions import InsecureRequestWarning
 
 from querylens.config import Settings
 from querylens.model import IndexUtilization, QueryCost, QueryDefinition, Workload
+
+logger = structlog.get_logger(__name__)
 
 
 def parse_query_metrics_header(header_val: str | None) -> dict[str, Any]:
@@ -91,6 +96,53 @@ def parse_index_utilization_header(b64_val: str | None) -> IndexUtilization | No
         )
     except Exception:
         return None
+
+
+def extract_error_details(exc: CosmosHttpResponseError) -> tuple[str, str | None]:
+    """Extract concise error message and activity ID from CosmosHttpResponseError.
+
+    Strips duplicated raw SDK text, ActivityId, and version banners from console output,
+    retaining ActivityId for structured JSON reporting and debug logs.
+
+    Args:
+        exc: Caught CosmosHttpResponseError instance.
+
+    Returns:
+        tuple[str, str | None]: (concise_message, activity_id)
+    """
+    activity_id = None
+    if hasattr(exc, "headers") and exc.headers:
+        activity_id = exc.headers.get("x-ms-activity-id") or exc.headers.get(
+            "x-ms-documentdb-activity-id"
+        )
+
+    raw_str = str(exc.message or exc)
+    if not activity_id:
+        match_aid = re.search(r"ActivityId:\s*([0-9a-fA-F-]+)", raw_str)
+        if match_aid:
+            activity_id = match_aid.group(1)
+
+    msg_text = None
+    # Look for nested JSON errors array from Cosmos DB Gateway
+    match_json = re.search(r'\{[^{}]*"errors"\s*:\s*\[.*?\][^{}]*\}', raw_str, re.DOTALL)
+    if match_json:
+        with contextlib.suppress(json.JSONDecodeError, KeyError, IndexError, TypeError):
+            parsed_json = json.loads(match_json.group(0))
+            errors_list = parsed_json.get("errors", [])
+            if errors_list and isinstance(errors_list[0], dict) and "message" in errors_list[0]:
+                msg_text = str(errors_list[0]["message"]).strip()
+
+    if not msg_text:
+        # Fallback: clean raw message
+        clean = raw_str.split("ActivityId:")[0].strip()
+        clean = re.sub(r"^Status code:\s*\d+\s*", "", clean).strip()
+        clean = re.sub(r"^\([a-zA-Z0-9]+\)\s*Message:\s*", "", clean).strip()
+        clean = re.sub(r"^Message:\s*", "", clean).strip()
+        lines = [line.strip() for line in clean.splitlines() if line.strip()]
+        msg_text = lines[0] if lines else "Query execution error"
+
+    status_str = f"HTTP {exc.status_code}: " if exc.status_code else ""
+    return f"{status_str}{msg_text}", activity_id
 
 
 def aggregate_query_headers(
@@ -304,6 +356,13 @@ class CosmosAdapter:
             except CosmosHttpResponseError as exc:
                 if exc.status_code == 400:
                     # Individual query execution error (e.g. syntax error in query)
+                    concise_msg, activity_id = extract_error_details(exc)
+                    logger.debug(
+                        "Query execution error",
+                        query_id=query_def.id,
+                        error=concise_msg,
+                        activity_id=activity_id,
+                    )
                     yield QueryCost(
                         query_id=query_def.id,
                         query_text=query_def.query,
@@ -312,7 +371,8 @@ class CosmosAdapter:
                         documents_scanned=0,
                         documents_returned=0,
                         is_cross_partition=False,
-                        error_message=str(exc.message or exc),
+                        error_message=concise_msg,
+                        activity_id=activity_id,
                     )
                     continue
                 # Re-raise 429 (throttled), 5xx (server error), 401/403 (auth), 404

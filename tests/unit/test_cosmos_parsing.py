@@ -4,8 +4,11 @@ import base64
 import json
 from pathlib import Path
 
+from azure.cosmos.exceptions import CosmosHttpResponseError
+
 from querylens.adapters.cosmos import (
     aggregate_query_headers,
+    extract_error_details,
     parse_index_utilization_header,
     parse_query_metrics_header,
 )
@@ -132,3 +135,32 @@ class TestCosmosParsing:
 
         agg = aggregate_query_headers([page1_headers, page2_headers], query_def=query_def)
         assert agg["is_cross_partition"] is False
+
+    def test_extract_error_details_nested_json_with_activity_id(self) -> None:
+        """Extract concise error message and activity id from raw Cosmos DB exception payload."""
+        raw_msg = (
+            'Message: {"errors":[{"severity":"Error","location":{"start":31,"end":35},'
+            '"code":"SC1001","message":"Syntax error, incorrect syntax near \'FROM\'."}]}\r\n'
+            "ActivityId: 64b85590-b146-444e-a10c-ca14923eef12, "
+            "Microsoft.Azure.Documents.Common/2.14.0"
+        )
+        exc = CosmosHttpResponseError(status_code=400, message=raw_msg)
+        msg, act_id = extract_error_details(exc)
+        assert msg == "HTTP 400: Syntax error, incorrect syntax near 'FROM'."
+        assert act_id == "64b85590-b146-444e-a10c-ca14923eef12"
+
+    def test_extract_error_details_from_response_headers(self) -> None:
+        """Extract activity id preferentially from HTTP response headers if available."""
+        exc = CosmosHttpResponseError(status_code=400, message="Malformed query request")
+        exc.headers = {"x-ms-activity-id": "header-act-id-123"}
+        msg, act_id = extract_error_details(exc)
+        assert msg == "HTTP 400: Malformed query request"
+        assert act_id == "header-act-id-123"
+
+    def test_extract_error_details_fallback_strips_activity_id_and_code(self) -> None:
+        """Fallback cleans raw text when JSON errors array is not present in message."""
+        raw_msg = "(BadRequest) Message: Query syntax error\r\nActivityId: abc-123"
+        exc = CosmosHttpResponseError(status_code=400, message=raw_msg)
+        msg, act_id = extract_error_details(exc)
+        assert msg == "HTTP 400: Query syntax error"
+        assert act_id == "abc-123"

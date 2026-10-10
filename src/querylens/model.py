@@ -243,6 +243,9 @@ class QueryCost(BaseModel):
     error_message: str | None = Field(
         default=None, description="Error message if query execution failed"
     )
+    activity_id: str | None = Field(
+        default=None, description="Cosmos DB activity ID for the request"
+    )
 
 
 class Finding(BaseModel):

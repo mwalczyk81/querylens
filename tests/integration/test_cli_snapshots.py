@@ -152,7 +152,8 @@ queries:
                 documents_scanned=0,
                 documents_returned=0,
                 is_cross_partition=False,
-                error_message="Syntax error near 'FROM'",
+                error_message="HTTP 400: Syntax error, incorrect syntax near 'FROM'.",
+                activity_id="00000000-0000-0000-0000-000000000001",
             )
         ]
         mock_get_adapter.return_value = mock_adapter
@@ -165,7 +166,7 @@ queries:
         )
         assert table_result.exit_code == 0
         assert "[ERROR]" in table_result.output
-        assert "Syntax error near 'FROM'" in table_result.output
+        assert "HTTP 400: Syntax error, incorrect syntax near 'FROM'." in table_result.output
 
         # Test JSON rendering
         json_result = runner.invoke(
@@ -174,5 +175,9 @@ queries:
         )
         assert json_result.exit_code == 0
         parsed = json.loads(json_result.output)
-        assert parsed["results"][0]["cost"]["error_message"] == "Syntax error near 'FROM'"
+        assert (
+            parsed["results"][0]["cost"]["error_message"]
+            == "HTTP 400: Syntax error, incorrect syntax near 'FROM'."
+        )
+        assert parsed["results"][0]["cost"]["activity_id"] == "00000000-0000-0000-0000-000000000001"
         assert parsed["results"][0]["cost"] == snapshot

@@ -69,6 +69,7 @@
               "is_cross_partition": { "type": "boolean" },
               "is_partial": { "type": "boolean" },
               "error_message": { "type": ["string", "null"] },
+              "activity_id": { "type": ["string", "null"] },
               "index_metrics": {
                 "type": ["object", "null"],
                 "properties": {

@@ -1,9 +1,10 @@
 # serializer version: 1
 # name: TestCliSnapshots.test_cli_error_query_snapshot
   dict({
+    'activity_id': '00000000-0000-0000-0000-000000000001',
     'documents_returned': 0,
     'documents_scanned': 0,
-    'error_message': "Syntax error near 'FROM'",
+    'error_message': "HTTP 400: Syntax error, incorrect syntax near 'FROM'.",
     'index_metrics': None,
     'is_cross_partition': False,
     'is_partial': False,
