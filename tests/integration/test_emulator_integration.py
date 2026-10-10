@@ -48,25 +48,32 @@ class TestCosmosAdapterEmulatorIntegration:
             credential=EMULATOR_KEY,
             connection_verify=False,
         )
+        try:
+            client.delete_database("querylens_integration_db")
+        except Exception:
+            pass
         db = client.create_database_if_not_exists(id="querylens_integration_db")
+        # Create multi-partition container with 10500 RU/s throughput.
+        # Provisioning > 10,000 RU/s forces Cosmos to split across physical partitions.
         container = db.create_container_if_not_exists(
             id="test_items",
             partition_key=PartitionKey(path="/category"),
+            offer_throughput=10500,
         )
 
-        # Seed sample documents
-        for i in range(10):
+        # Seed sample documents across multiple partition key values
+        for i in range(30):
             container.upsert_item(
                 {
                     "id": f"item-{i}",
-                    "category": "electronics" if i % 2 == 0 else "apparel",
+                    "category": f"cat-{i % 6}",
                     "price": 10.0 * i,
                     "active": True,
                 }
             )
 
     def test_collect_against_real_emulator(self, setup_emulator_container: None) -> None:
-        """Execute queries and capture real RU metrics from emulator."""
+        """Execute point and fan-out queries against real emulator."""
         settings = Settings(
             endpoint=EMULATOR_ENDPOINT,
             cosmos_key=EMULATOR_KEY,
@@ -81,7 +88,7 @@ class TestCosmosAdapterEmulatorIntegration:
                 QueryDefinition(
                     id="q_point",
                     query="SELECT * FROM c WHERE c.id = 'item-0'",
-                    partition_key="electronics",
+                    partition_key="cat-0",
                 ),
                 QueryDefinition(
                     id="q_cross_partition",
@@ -102,4 +109,35 @@ class TestCosmosAdapterEmulatorIntegration:
         fanout_query = results[1]
         assert fanout_query.query_id == "q_cross_partition"
         assert fanout_query.request_charge > 0.0
-        assert fanout_query.documents_returned >= 10
+        assert fanout_query.documents_returned >= 30
+        assert fanout_query.is_cross_partition is True
+
+    def test_single_partition_multi_page_not_flagged(self, setup_emulator_container: None) -> None:
+        """Assert that single-partition multi-page queries are NOT flagged as cross-partition."""
+        settings = Settings(
+            endpoint=EMULATOR_ENDPOINT,
+            cosmos_key=EMULATOR_KEY,
+            database="querylens_integration_db",
+            container="test_items",
+            max_item_count=2,  # Force small page size to ensure multiple pages
+        )
+        adapter = CosmosAdapter(settings)
+        workload = Workload(
+            database="querylens_integration_db",
+            container="test_items",
+            queries=[
+                QueryDefinition(
+                    id="q_single_partition_pages",
+                    query="SELECT * FROM c WHERE c.category = @cat",
+                    partition_key="cat-0",
+                    parameters=[{"name": "@cat", "value": "cat-0"}],
+                ),
+            ],
+        )
+
+        results = list(adapter.collect(workload))
+        assert len(results) == 1
+        query_cost = results[0]
+        assert query_cost.query_id == "q_single_partition_pages"
+        assert query_cost.documents_returned >= 5
+        assert query_cost.is_cross_partition is False

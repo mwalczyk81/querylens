@@ -22,7 +22,7 @@ from azure.cosmos.http_constants import HttpHeaders
 from azure.identity import DefaultAzureCredential
 
 from querylens.config import Settings
-from querylens.model import IndexUtilization, QueryCost, Workload
+from querylens.model import IndexUtilization, QueryCost, QueryDefinition, Workload
 
 
 def parse_query_metrics_header(header_val: str | None) -> dict[str, Any]:
@@ -90,11 +90,15 @@ def parse_index_utilization_header(b64_val: str | None) -> IndexUtilization | No
         return None
 
 
-def aggregate_query_headers(headers_list: list[Mapping[str, Any]]) -> dict[str, Any]:
+def aggregate_query_headers(
+    headers_list: list[Mapping[str, Any]],
+    query_def: QueryDefinition | None = None,
+) -> dict[str, Any]:
     """Aggregate metric headers across multiple pages and physical partitions.
 
     Args:
         headers_list: Sequence of response header mappings.
+        query_def: Optional query definition providing partition key context.
 
     Returns:
         dict[str, Any]: Aggregated cost metrics.
@@ -125,7 +129,23 @@ def aggregate_query_headers(headers_list: list[Mapping[str, Any]]) -> dict[str, 
         if iu_str and index_util is None:
             index_util = parse_index_utilization_header(iu_str)
 
-    is_cross = len(headers_list) > 1
+    # Cross-partition detection:
+    # 1. Never flag cross-partition when query_def targets a specific partition_key.
+    # 2. Otherwise, check distinct partition key range IDs from response headers.
+    if query_def is not None and query_def.partition_key is not None:
+        is_cross = False
+    else:
+        pkr_ids = {
+            str(pkr).strip()
+            for h in headers_list
+            if (
+                pkr := h.get(HttpHeaders.PartitionKeyRangeID)
+                or h.get("x-ms-documentdb-partitionkeyrangeid")
+            )
+            is not None
+            and str(pkr).strip()
+        }
+        is_cross = len(pkr_ids) > 1
 
     return {
         "request_charge": round(total_ru, 2),
@@ -288,7 +308,7 @@ class CosmosAdapter:
                 )
                 continue
 
-            agg = aggregate_query_headers(page_headers)
+            agg = aggregate_query_headers(page_headers, query_def=query_def)
             cost = QueryCost(
                 query_id=query_def.id,
                 query_text=query_def.query,

@@ -77,12 +77,24 @@ Chosen option: "Option 1", because:
   * `azure.core.exceptions.ServiceRequestError` (connection refused, DNS failure)
   * `azure.cosmos.exceptions.CosmosClientTimeoutError` / `azure.core.exceptions.ServiceRequestTimeoutError`
 
+### 5. Cross-Partition Detection & Partition Key Range Signals
+
+* **Problem**: The initial heuristic evaluated `len(headers_list) > 1`, which produced false positives on single-partition queries with multiple result pages.
+* **Empirical Findings (Emulator Verification)**:
+  * Azure Cosmos DB returns `HttpHeaders.PartitionKeyRangeID` (`x-ms-documentdb-partitionkeyrangeid`) in each response header dictionary.
+  * In single-partition multi-page queries, every page returns the same partition key range ID (e.g., `['0', '0', '0']`), yielding 1 distinct ID.
+  * In cross-partition fan-out queries across multiple physical partitions (e.g., container provisioned with > 10,000 RU/s across `AZURE_COSMOS_EMULATOR_PARTITION_COUNT=3`), responses arrive with distinct partition key range IDs (e.g., `['0', '1']`).
+* **Contract**:
+  1. If `query_def.partition_key` is set, `is_cross_partition` is strictly `False`.
+  2. Otherwise, `is_cross_partition` evaluates to `len(distinct_pkr_ids) > 1` based on `HttpHeaders.PartitionKeyRangeID`.
+
 ### Positive Consequences
 
 * Clean, standards-based integration using official SDK public extensibility points (`response_hook`).
 * Zero memory pressure from large result sets.
 * Robust header parsing resilient to variations in metric header whitespace or missing optional metrics.
 * Accurate exit codes aligned with enterprise security and DevOps requirements.
+* True cross-partition detection without false positives on paginated single-partition queries.
 
 ### Negative Consequences
 

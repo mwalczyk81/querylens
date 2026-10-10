@@ -9,6 +9,7 @@ from querylens.adapters.cosmos import (
     parse_index_utilization_header,
     parse_query_metrics_header,
 )
+from querylens.model import QueryDefinition
 
 
 class TestCosmosParsing:
@@ -60,16 +61,18 @@ class TestCosmosParsing:
         assert parse_index_utilization_header("") is None
         assert parse_index_utilization_header("not-valid-base64===") is None
 
-    def test_aggregate_query_headers_multi_page(self) -> None:
-        """Aggregate metrics across multiple pages/partition responses."""
+    def test_aggregate_query_headers_multi_page_cross_partition(self) -> None:
+        """Aggregate metrics across multiple partitions with distinct partition key range IDs."""
         page1_headers = {
             "x-ms-request-charge": "12.5",
+            "x-ms-documentdb-partitionkeyrangeid": "0",
             "x-ms-documentdb-query-metrics": (
                 "retrievedDocumentCount=100;outputDocumentCount=5;totalExecutionTimeInMs=10.0"
             ),
         }
         page2_headers = {
             "x-ms-request-charge": "15.0",
+            "x-ms-documentdb-partitionkeyrangeid": "1",
             "x-ms-documentdb-query-metrics": (
                 "retrievedDocumentCount=200;outputDocumentCount=10;totalExecutionTimeInMs=12.5"
             ),
@@ -81,3 +84,51 @@ class TestCosmosParsing:
         assert agg["documents_returned"] == 15
         assert agg["latency_ms"] == 22.5
         assert agg["is_cross_partition"] is True
+
+    def test_aggregate_query_headers_single_partition_multi_page(self) -> None:
+        """Do not flag cross-partition when all pages share the same partition key range ID."""
+        page1_headers = {
+            "x-ms-request-charge": "5.0",
+            "x-ms-documentdb-partitionkeyrangeid": "0",
+            "x-ms-documentdb-query-metrics": (
+                "retrievedDocumentCount=50;outputDocumentCount=25;totalExecutionTimeInMs=4.0"
+            ),
+        }
+        page2_headers = {
+            "x-ms-request-charge": "4.5",
+            "x-ms-documentdb-partitionkeyrangeid": "0",
+            "x-ms-documentdb-query-metrics": (
+                "retrievedDocumentCount=40;outputDocumentCount=20;totalExecutionTimeInMs=3.5"
+            ),
+        }
+
+        agg = aggregate_query_headers([page1_headers, page2_headers])
+        assert agg["request_charge"] == 9.5
+        assert agg["documents_scanned"] == 90
+        assert agg["documents_returned"] == 45
+        assert agg["is_cross_partition"] is False
+
+    def test_aggregate_query_headers_partition_key_set_never_cross_partition(self) -> None:
+        """Never flag cross-partition when query_def has partition_key explicitly configured."""
+        page1_headers = {
+            "x-ms-request-charge": "10.0",
+            "x-ms-documentdb-partitionkeyrangeid": "0",
+            "x-ms-documentdb-query-metrics": (
+                "retrievedDocumentCount=10;outputDocumentCount=5;totalExecutionTimeInMs=2.0"
+            ),
+        }
+        page2_headers = {
+            "x-ms-request-charge": "10.0",
+            "x-ms-documentdb-partitionkeyrangeid": "1",
+            "x-ms-documentdb-query-metrics": (
+                "retrievedDocumentCount=10;outputDocumentCount=5;totalExecutionTimeInMs=2.0"
+            ),
+        }
+        query_def = QueryDefinition(
+            id="q_single",
+            query="SELECT * FROM c WHERE c.category = 'cat-1'",
+            partition_key="cat-1",
+        )
+
+        agg = aggregate_query_headers([page1_headers, page2_headers], query_def=query_def)
+        assert agg["is_cross_partition"] is False
