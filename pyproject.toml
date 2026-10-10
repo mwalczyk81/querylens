@@ -21,7 +21,7 @@ classifiers = [
 ]
 dependencies = [
     "azure-cosmos>=4.7.0",
-    "azure-identity>=1.16.0",
+    "azure-identity>=1.26.0",
     "click>=8.1.7",
     "pydantic>=2.7.0",
     "pydantic-settings>=2.2.0",
