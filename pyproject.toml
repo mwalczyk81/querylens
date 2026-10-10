@@ -83,16 +83,19 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "DOC", "S"]
+"scripts/*" = ["S311"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["scripts"]
 addopts = "-ra --strict-markers"
 markers = [
     "integration: mark test as integration test against emulator or external service",
 ]
 
 [tool.pyrefly]
-project-includes = ["src", "tests"]
+project-includes = ["src", "tests", "scripts"]
+search-path = ["src", "scripts"]
 python-version = "3.12"
 
 [tool.coverage.run]

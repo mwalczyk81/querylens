@@ -2,19 +2,19 @@
 
 import os
 import socket
+from pathlib import Path
 from urllib.parse import urlparse
 
 import pytest
-from azure.cosmos import CosmosClient, PartitionKey
+import yaml
+from seed_emulator import EMULATOR_KEY, seed
 
 from querylens.adapters.cosmos import CosmosAdapter
 from querylens.config import Settings
 from querylens.model import QueryDefinition, Workload
+from querylens.rules import evaluate_rules
 
 EMULATOR_ENDPOINT = "https://localhost:8081/"
-EMULATOR_KEY = (
-    "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
-)
 
 
 def is_emulator_reachable() -> bool:
@@ -40,7 +40,7 @@ class TestCosmosAdapterEmulatorIntegration:
     @pytest.fixture(scope="class")
     @classmethod
     def setup_emulator_container(cls) -> None:
-        """Create integration test database and container on emulator."""
+        """Seed integration test database and containers on emulator using seed_emulator."""
         if not is_emulator_reachable():
             if os.getenv("QUERYLENS_REQUIRE_EMULATOR") == "1":
                 pytest.fail(
@@ -49,56 +49,37 @@ class TestCosmosAdapterEmulatorIntegration:
                 )
             pytest.skip("Cosmos DB emulator is not running on localhost:8081")
 
-        client = CosmosClient(
-            url=EMULATOR_ENDPOINT,
-            credential=EMULATOR_KEY,
-            connection_verify=False,
+        seed(
+            endpoint=EMULATOR_ENDPOINT,
+            key=EMULATOR_KEY,
+            database_name="querylens_dev",
+            reset=True,
+            doc_count=1200,
+            large_doc_count=20,
+            num_partitions=60,
         )
-        try:
-            client.delete_database("querylens_integration_db")
-        except Exception:
-            pass
-        db = client.create_database_if_not_exists(id="querylens_integration_db")
-        # Create multi-partition container with 10500 RU/s throughput.
-        # Provisioning > 10,000 RU/s forces Cosmos to split across physical partitions.
-        container = db.create_container_if_not_exists(
-            id="test_items",
-            partition_key=PartitionKey(path="/category"),
-            offer_throughput=10500,
-        )
-
-        # Seed sample documents across multiple partition key values
-        for i in range(30):
-            container.upsert_item(
-                {
-                    "id": f"item-{i}",
-                    "category": f"cat-{i % 6}",
-                    "price": 10.0 * i,
-                    "active": True,
-                }
-            )
 
     def test_collect_against_real_emulator(self, setup_emulator_container: None) -> None:
         """Execute point and fan-out queries against real emulator."""
         settings = Settings(
             endpoint=EMULATOR_ENDPOINT,
             cosmos_key=EMULATOR_KEY,
-            database="querylens_integration_db",
-            container="test_items",
+            database="querylens_dev",
+            container="items",
         )
         adapter = CosmosAdapter(settings)
         workload = Workload(
-            database="querylens_integration_db",
-            container="test_items",
+            database="querylens_dev",
+            container="items",
             queries=[
                 QueryDefinition(
                     id="q_point",
-                    query="SELECT * FROM c WHERE c.id = 'item-0'",
+                    query="SELECT * FROM c WHERE c.id = 'item-0000'",
                     partition_key="cat-0",
                 ),
                 QueryDefinition(
                     id="q_cross_partition",
-                    query="SELECT * FROM c WHERE c.active = true",
+                    query="SELECT * FROM c WHERE c.status = 'active'",
                 ),
             ],
         )
@@ -123,14 +104,14 @@ class TestCosmosAdapterEmulatorIntegration:
         settings = Settings(
             endpoint=EMULATOR_ENDPOINT,
             cosmos_key=EMULATOR_KEY,
-            database="querylens_integration_db",
-            container="test_items",
+            database="querylens_dev",
+            container="items",
             max_item_count=2,  # Force small page size to ensure multiple pages
         )
         adapter = CosmosAdapter(settings)
         workload = Workload(
-            database="querylens_integration_db",
-            container="test_items",
+            database="querylens_dev",
+            container="items",
             queries=[
                 QueryDefinition(
                     id="q_single_partition_pages",
@@ -147,3 +128,67 @@ class TestCosmosAdapterEmulatorIntegration:
         assert query_cost.query_id == "q_single_partition_pages"
         assert query_cost.documents_returned >= 5
         assert query_cost.is_cross_partition is False
+
+    def test_example_workload_findings(self, setup_emulator_container: None) -> None:
+        """Verify examples/workload.yaml queries trigger expected findings and clean controls."""
+        workload_path = Path(__file__).resolve().parent.parent.parent / "examples" / "workload.yaml"
+        raw_yaml = workload_path.read_text(encoding="utf-8")
+        workload_dict = yaml.safe_load(raw_yaml)
+        workload = Workload.model_validate(workload_dict)
+
+        settings = Settings(
+            endpoint=EMULATOR_ENDPOINT,
+            cosmos_key=EMULATOR_KEY,
+            database=workload.database or "querylens_dev",
+            container=workload.container or "unindexed_items",
+        )
+        adapter = CosmosAdapter(settings)
+        results = list(adapter.collect(workload))
+        assert len(results) == len(workload.queries)
+
+        results_by_id = {r.query_id: r for r in results}
+
+        # 1. High RU query: produces QL001 (High RU Cost) and QL002 (Fan-Out)
+        r_high = results_by_id["high_ru_scan"]
+        f_high = evaluate_rules(r_high, settings)
+        high_rule_ids = {f.rule_id for f in f_high}
+        assert "QL001" in high_rule_ids
+        assert "QL002" in high_rule_ids
+        assert r_high.request_charge >= 50.0
+
+        # 2. Cross-partition fan-out: produces QL002 (Cross-Partition Fan-Out)
+        r_fanout = results_by_id["cross_partition_fanout"]
+        f_fanout = evaluate_rules(r_fanout, settings)
+        fanout_rule_ids = {f.rule_id for f in f_fanout}
+        assert "QL002" in fanout_rule_ids
+        assert r_fanout.is_cross_partition is True
+
+        # 3. Scan-to-return gap: produces QL003 (Scan-to-Return Gap)
+        r_scangap = results_by_id["scan_gap_unindexed"]
+        f_scangap = evaluate_rules(r_scangap, settings)
+        scangap_rule_ids = {f.rule_id for f in f_scangap}
+        assert "QL003" in scangap_rule_ids
+        assert r_scangap.documents_scanned >= 1000
+        assert r_scangap.documents_returned <= 5
+
+        # 4. Control 1 (Point Read): produces NO findings
+        r_point = results_by_id["control_point_read"]
+        f_point = evaluate_rules(r_point, settings)
+        assert len(f_point) == 0
+        assert r_point.documents_scanned == 1
+        assert r_point.documents_returned == 1
+        assert r_point.is_cross_partition is False
+
+        # 5. Control 2 (Single-Partition Query): produces NO findings
+        r_single = results_by_id["control_single_partition_multipage"]
+        f_single = evaluate_rules(r_single, settings)
+        assert len(f_single) == 0
+        assert r_single.is_cross_partition is False
+
+        # 6. Bad syntax query: returns 0 RU row with captured error message, NO findings
+        r_bad = results_by_id["bad_syntax_error"]
+        f_bad = evaluate_rules(r_bad, settings)
+        assert len(f_bad) == 0
+        assert r_bad.request_charge == 0.0
+        assert r_bad.error_message is not None
+        assert "Syntax error" in r_bad.error_message

@@ -27,52 +27,59 @@ QueryLens is a fast, developer-friendly command-line profiler for **Azure Cosmos
 
 ## 🚀 Quickstart
 
-### 1. Installation
+Get started locally with QueryLens in seconds using Docker Compose and the local Cosmos DB emulator:
+
+### 1. Start Local Cosmos DB Emulator
 
 ```bash
-# Using uv (recommended)
-uv tool install querylens
-
-# Or with pip
-pip install querylens
+docker compose up -d
 ```
 
-### 2. Define a Workload (`workload.yaml`)
-
-```yaml
-version: "1"
-database: "benchmark_db"
-container: "orders"
-ru_budget: 500.0
-
-queries:
-  - id: "point-read-by-pk"
-    query: "SELECT * FROM c WHERE c.customerId = @customerId AND c.id = @id"
-    partition_key: "cust-1001"
-    parameters:
-      - name: "@customerId"
-        value: "cust-1001"
-      - name: "@id"
-        value: "ord-9021"
-
-  - id: "fanout-status-scan"
-    query: "SELECT * FROM c WHERE c.status = 'PENDING_REVIEW'"
-
-  - id: "expensive-category-scan"
-    query: "SELECT * FROM c WHERE c.totalAmount > 1000000"
-```
-
-### 3. Run QueryLens
+### 2. Seed Emulator with Deterministic Test Data
 
 ```bash
-# Interactive Rich terminal report (uses DefaultAzureCredential)
-querylens run workload.yaml --endpoint https://myaccount.documents.azure.com:443/
+uv run python scripts/seed_emulator.py
+```
 
-# Machine-readable JSON output for automation
-querylens run workload.yaml --endpoint https://myaccount.documents.azure.com:443/ --json
+### 3. Run QueryLens Against Example Workload
 
-# CI/CD pull request gate: Fail pipeline if any HIGH or CRITICAL issues are detected
-querylens run workload.yaml --endpoint https://myaccount.documents.azure.com:443/ --fail-on high
+Configure the emulator endpoint and master key, then profile the workload:
+
+```bash
+# On Linux / macOS / Bash:
+export QUERYLENS_ENDPOINT="https://localhost:8081/"
+export QUERYLENS_COSMOS_KEY="C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+uv run querylens run examples/workload.yaml
+
+# On Windows PowerShell:
+$env:QUERYLENS_ENDPOINT = "https://localhost:8081/"
+$env:QUERYLENS_COSMOS_KEY = "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+uv run querylens run examples/workload.yaml
+```
+
+### Sample Output
+
+```text
++------------------------ QueryLens Workload Profile -------------------------+
+| Database: querylens_dev  |  Container: unindexed_items                      |
+| Executed: 6/6 queries  |  Total RUs: 147.31 RUs  |  Budget Status: OK       |
++-----------------------------------------------------------------------------+
++---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|  Rank | Query ID                         |    RU Cost |    Latency |   Scanned |  Returned | Fan-Out | Severity | Diagnostic Findings                         |
+|-------+----------------------------------+------------+------------+-----------+-----------+---------+----------+---------------------------------------------|
+|     1 | cross_partition_fanout           |      60.80 |     4.5 ms |       920 |       920 |   Yes   |   HIGH   | High RU Cost (QL001), Fan-Out (QL002)       |
+|     2 | high_ru_scan                     |      58.98 |     5.1 ms |      1220 |      1220 |   Yes   |   HIGH   | High RU Cost (QL001), Fan-Out (QL002)       |
+|     3 | scan_gap_unindexed               |      20.80 |     1.4 ms |      1220 |         1 |   Yes   | CRITICAL | Fan-Out (QL002), Scan-to-Return Gap (QL003) |
+|     4 | control_single_partition_pages   |       3.81 |     0.4 ms |        21 |        21 |    No   |   INFO   | None (Clean Control)                        |
+|     5 | control_point_read               |       2.92 |     0.4 ms |         1 |         1 |    No   |   INFO   | None (Clean Control)                        |
+|     6 | bad_syntax_error                 |       0.00 |     0.0 ms |         0 |         0 |    No   |   INFO   | Handled syntax error (HTTP 400 Bad Request) |
++---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+Diagnostic Details:
+
+● Query: scan_gap_unindexed
+  - Scan-to-Return Gap (QL003) [CRITICAL]: Scanned-to-returned ratio of 1220.0x exceeds critical threshold (100.0x).
+    Evidence: {'ratio': 1220.0, 'documents_scanned': 1220, 'documents_returned': 1, 'threshold': 100.0}
 ```
 
 ---

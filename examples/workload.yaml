@@ -1,0 +1,39 @@
+version: "1"
+database: "querylens_dev"
+container: "unindexed_items"
+
+queries:
+  # Expected: QL001 (High RU Cost) and QL002 (Cross-Partition Fan-Out)
+  # Full collection scan across 60 partition keys consuming ~89 RUs (> 50 RU threshold).
+  - id: "high_ru_scan"
+    query: "SELECT * FROM c"
+
+  # Expected: QL002 (Cross-Partition Fan-Out)
+  # Filtered query without a partition key targeting all partitions across the container.
+  - id: "cross_partition_fanout"
+    query: "SELECT * FROM c WHERE c.status = 'active'"
+
+  # Expected: QL003 (Scan-to-Return Gap - critical)
+  # 'unindexed_tag' is excluded from the container indexing policy.
+  # Forces Cosmos DB to scan 1,200 documents while returning only 1 matching document.
+  - id: "scan_gap_unindexed"
+    query: "SELECT * FROM c WHERE c.unindexed_tag = 'target'"
+
+  # Expected: None (Clean Control - Point Read)
+  # Single-partition point lookup with partition_key specified.
+  # Exactly 1 document scanned and 1 document returned (< 5 RUs).
+  - id: "control_point_read"
+    query: "SELECT * FROM c WHERE c.id = 'item-0042'"
+    partition_key: "cat-42"
+
+  # Expected: None (Clean Control - Single-Partition Query)
+  # Targeted single-partition query with partition_key specified.
+  # Retrieves all ~20 documents in partition 'cat-0' with a 1:1 scan-to-return ratio.
+  - id: "control_single_partition_multipage"
+    query: "SELECT * FROM c WHERE c.category = 'cat-0'"
+    partition_key: "cat-0"
+
+  # Expected: Handled query execution syntax error (HTTP 400 Bad Request)
+  # Deliberately malformed SQL syntax; yields a zero-RU row with captured error message.
+  - id: "bad_syntax_error"
+    query: "SELECT FROM c WHERE"
