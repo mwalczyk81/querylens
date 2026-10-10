@@ -53,7 +53,7 @@ class TestCosmosAdapterEmulatorIntegration:
             endpoint=EMULATOR_ENDPOINT,
             key=EMULATOR_KEY,
             database_name="querylens_dev",
-            reset=True,
+            reset=False,
             doc_count=1200,
             large_doc_count=20,
             num_partitions=60,

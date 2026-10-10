@@ -9,6 +9,7 @@ Populates local Cosmos DB emulator with reproducible workloads for testing and p
 
 import argparse
 import random
+import time
 from contextlib import suppress
 from typing import Any
 from urllib.parse import urlparse
@@ -87,11 +88,30 @@ def seed(
         print(f"Resetting existing database '{database_name}'...")
         with suppress(Exception):
             client.delete_database(database_name)
+            for _ in range(10):
+                time.sleep(0.5)
+                try:
+                    client.get_database_client(database_name).read()
+                except Exception:
+                    break
             print(f"Database '{database_name}' dropped.")
 
     # Provision shared database throughput (10,500 RU/s forces physical partition splits)
     print(f"Creating database '{database_name}' with shared 10,500 RU/s throughput...")
-    database = client.create_database_if_not_exists(id=database_name, offer_throughput=10500)
+    database = None
+    for attempt in range(5):
+        try:
+            database = client.create_database_if_not_exists(
+                id=database_name, offer_throughput=10500
+            )
+            break
+        except Exception:
+            if attempt == 4:
+                raise
+            time.sleep(1.0)
+    if database is None:
+        msg = f"Failed to create database '{database_name}' after retries."
+        raise RuntimeError(msg)
 
     # 1. Container with default indexing policy
     print(f"Creating container '{container_default_name}' (default indexing)...")
