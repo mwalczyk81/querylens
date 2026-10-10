@@ -1,0 +1,160 @@
+{
+  "timestamp": "2026-10-10T17:59:49.880228+00:00",
+  "database": "querylens_dev",
+  "container": "unindexed_items",
+  "total_queries": 5,
+  "completed_queries": 5,
+  "total_ru_consumed": 163.3,
+  "ru_budget": null,
+  "budget_exceeded": false,
+  "max_item_count": 100,
+  "results": [
+    {
+      "cost": {
+        "query_id": "high_ru_scan",
+        "query_text": "SELECT * FROM c",
+        "request_charge": 63.1,
+        "latency_ms": 5.78,
+        "documents_scanned": 1320,
+        "documents_returned": 1320,
+        "is_cross_partition": true,
+        "is_partial": false,
+        "index_metrics": null,
+        "error_message": null,
+        "activity_id": null,
+        "has_partition_key": false
+      },
+      "findings": [
+        {
+          "rule_id": "QL001",
+          "rule_name": "High RU Cost",
+          "severity": "HIGH",
+          "summary": "Query consumed 63.10 RUs exceeding warning threshold (50.00 RUs).",
+          "evidence": {
+            "request_charge": 63.1,
+            "threshold": 50.0
+          }
+        },
+        {
+          "rule_id": "QL002",
+          "rule_name": "Cross-Partition Fan-Out",
+          "severity": "MEDIUM",
+          "summary": "Query execution fanned out across multiple physical partitions without a scoped partition key.",
+          "evidence": {
+            "is_cross_partition": true
+          }
+        }
+      ]
+    },
+    {
+      "cost": {
+        "query_id": "cross_partition_fanout",
+        "query_text": "SELECT * FROM c WHERE c.status = 'active'",
+        "request_charge": 65.65,
+        "latency_ms": 5.95,
+        "documents_scanned": 995,
+        "documents_returned": 995,
+        "is_cross_partition": true,
+        "is_partial": false,
+        "index_metrics": null,
+        "error_message": null,
+        "activity_id": null,
+        "has_partition_key": false
+      },
+      "findings": [
+        {
+          "rule_id": "QL001",
+          "rule_name": "High RU Cost",
+          "severity": "HIGH",
+          "summary": "Query consumed 65.65 RUs exceeding warning threshold (50.00 RUs).",
+          "evidence": {
+            "request_charge": 65.65,
+            "threshold": 50.0
+          }
+        },
+        {
+          "rule_id": "QL002",
+          "rule_name": "Cross-Partition Fan-Out",
+          "severity": "MEDIUM",
+          "summary": "Query execution fanned out across multiple physical partitions without a scoped partition key.",
+          "evidence": {
+            "is_cross_partition": true
+          }
+        }
+      ]
+    },
+    {
+      "cost": {
+        "query_id": "scan_gap_unindexed",
+        "query_text": "SELECT * FROM c WHERE c.unindexed_tag = 'target'",
+        "request_charge": 22.07,
+        "latency_ms": 1.76,
+        "documents_scanned": 1320,
+        "documents_returned": 1,
+        "is_cross_partition": true,
+        "is_partial": false,
+        "index_metrics": null,
+        "error_message": null,
+        "activity_id": null,
+        "has_partition_key": false
+      },
+      "findings": [
+        {
+          "rule_id": "QL002",
+          "rule_name": "Cross-Partition Fan-Out",
+          "severity": "MEDIUM",
+          "summary": "Query execution fanned out across multiple physical partitions without a scoped partition key.",
+          "evidence": {
+            "is_cross_partition": true
+          }
+        },
+        {
+          "rule_id": "QL003",
+          "rule_name": "Scan-to-Return Gap",
+          "severity": "CRITICAL",
+          "summary": "Scanned-to-returned ratio of 1320.0x exceeds critical threshold (100.0x).",
+          "evidence": {
+            "ratio": 1320.0,
+            "documents_scanned": 1320,
+            "documents_returned": 1,
+            "threshold": 100.0
+          }
+        }
+      ]
+    },
+    {
+      "cost": {
+        "query_id": "control_point_read",
+        "query_text": "SELECT * FROM c WHERE c.id = 'item-0042'",
+        "request_charge": 2.92,
+        "latency_ms": 0.31,
+        "documents_scanned": 1,
+        "documents_returned": 1,
+        "is_cross_partition": false,
+        "is_partial": false,
+        "index_metrics": null,
+        "error_message": null,
+        "activity_id": null,
+        "has_partition_key": true
+      },
+      "findings": []
+    },
+    {
+      "cost": {
+        "query_id": "control_single_partition_multipage",
+        "query_text": "SELECT * FROM c WHERE c.category = 'cat-0'",
+        "request_charge": 9.56,
+        "latency_ms": 0.83,
+        "documents_scanned": 121,
+        "documents_returned": 121,
+        "is_cross_partition": false,
+        "is_partial": false,
+        "index_metrics": null,
+        "error_message": null,
+        "activity_id": null,
+        "has_partition_key": true
+      },
+      "findings": []
+    }
+  ]
+}
