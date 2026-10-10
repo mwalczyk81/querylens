@@ -96,7 +96,7 @@ markers = [
 
 [tool.pyrefly]
 project-includes = ["src", "tests", "scripts"]
-search-path = ["src", "scripts"]
+search-path = ["src", "scripts", "."]
 python-version = "3.12"
 
 [tool.coverage.run]

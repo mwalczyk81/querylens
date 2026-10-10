@@ -1,0 +1,163 @@
+# serializer version: 1
+# name: test_discover_kql_default_snapshots
+  '''
+  // === Query 1: Top Query Shapes Query ===
+  let reqs = AzureDiagnostics
+      | where Category == "DataPlaneRequests" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
+      | summarize
+          total_charge = sum(todouble(coalesce(tostring(column_ifexists("requestCharge_s", "")), tostring(column_ifexists("RequestCharge_s", "")), "0"))),
+          is_429 = max(iff(coalesce(tostring(column_ifexists("statusCode_s", "")), tostring(column_ifexists("StatusCode_s", "")), "") == "429", 1, 0)),
+          client_ip = take_any(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), "")),
+          aad_principal = take_any(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))
+        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+  
+  let queries = AzureDiagnostics
+      | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
+      | extend
+          db_name = coalesce(tostring(column_ifexists("databaseName_s", "")), tostring(column_ifexists("databasename_s", "")), tostring(column_ifexists("DatabaseName_s", "")), ""),
+          coll_name = coalesce(tostring(column_ifexists("collectionName_s", "")), tostring(column_ifexists("collectionname_s", "")), tostring(column_ifexists("CollectionName_s", "")), ""),
+          shape_sig = coalesce(tostring(column_ifexists("shapesignature_s", "")), tostring(column_ifexists("ShapeSignature_s", "")), tostring(column_ifexists("shapeSignature_s", "")), ""),
+          raw_text = coalesce(tostring(column_ifexists("querytext_s", "")), tostring(column_ifexists("QueryText_s", "")), tostring(column_ifexists("queryText_s", "")), ""),
+          returned_count = todouble(coalesce(tostring(column_ifexists("numberofrowsreturned_s", "")), tostring(column_ifexists("numberOfRowsReturned_s", "")), tostring(column_ifexists("NumberOfRowsReturned_s", "")), "0"))
+      | extend shape_key = iff(isnotempty(shape_sig), shape_sig, hash_sha256(raw_text))
+      | summarize
+          database = take_any(db_name),
+          container = take_any(coll_name),
+          shape_id = take_any(shape_key),
+          sample_query_text = take_any(raw_text),
+          returned_rows = sum(returned_count)
+        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+  
+  let joined = materialize(
+      queries
+      | join kind=inner reqs on activityId_g
+  );
+  
+  let top_shapes = materialize(
+      joined
+      | summarize
+          execution_count = count(),
+          total_ru = sum(total_charge),
+          max_ru = max(total_charge),
+          total_returned_rows = sum(returned_rows),
+          throttled_count = sum(is_429),
+          sample_text = take_any(sample_query_text)
+        by database, container, shape_id
+      | top 20 by total_ru desc
+  );
+  
+  top_shapes
+  | project
+      database, container, shape_id, sample_text,
+      execution_count, total_ru, max_ru, total_returned_rows,
+      throttled_count
+  
+  // === Query 2: Window & Attributed Totals Query ===
+  let reqs = AzureDiagnostics
+      | where Category == "DataPlaneRequests" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
+      | summarize
+          total_charge = sum(todouble(coalesce(tostring(column_ifexists("requestCharge_s", "")), tostring(column_ifexists("RequestCharge_s", "")), "0"))),
+          earliest_time = min(TimeGenerated)
+        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+  
+  let queries = AzureDiagnostics
+      | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
+      | summarize by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+  
+  let window_total = toscalar(reqs | summarize sum(total_charge));
+  let min_time = toscalar(reqs | summarize min(earliest_time));
+  
+  queries
+  | join kind=inner reqs on activityId_g
+  | summarize
+      attributed_total_ru = sum(total_charge),
+      total_executions = count()
+  | extend
+      window_total_ru = window_total,
+      min_time_generated = min_time
+  
+  '''
+# ---
+# name: test_discover_kql_with_account_snapshots
+  '''
+  // === Query 1: Top Query Shapes Query ===
+  let reqs = AzureDiagnostics
+      | where Category == "DataPlaneRequests" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
+      | where _ResourceId endswith "/databaseaccounts/cosmos-prod-eastus"
+      | summarize
+          total_charge = sum(todouble(coalesce(tostring(column_ifexists("requestCharge_s", "")), tostring(column_ifexists("RequestCharge_s", "")), "0"))),
+          is_429 = max(iff(coalesce(tostring(column_ifexists("statusCode_s", "")), tostring(column_ifexists("StatusCode_s", "")), "") == "429", 1, 0)),
+          client_ip = take_any(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), "")),
+          aad_principal = take_any(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))
+        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+  
+  let queries = AzureDiagnostics
+      | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
+      | where _ResourceId endswith "/databaseaccounts/cosmos-prod-eastus"
+      | extend
+          db_name = coalesce(tostring(column_ifexists("databaseName_s", "")), tostring(column_ifexists("databasename_s", "")), tostring(column_ifexists("DatabaseName_s", "")), ""),
+          coll_name = coalesce(tostring(column_ifexists("collectionName_s", "")), tostring(column_ifexists("collectionname_s", "")), tostring(column_ifexists("CollectionName_s", "")), ""),
+          shape_sig = coalesce(tostring(column_ifexists("shapesignature_s", "")), tostring(column_ifexists("ShapeSignature_s", "")), tostring(column_ifexists("shapeSignature_s", "")), ""),
+          raw_text = coalesce(tostring(column_ifexists("querytext_s", "")), tostring(column_ifexists("QueryText_s", "")), tostring(column_ifexists("queryText_s", "")), ""),
+          returned_count = todouble(coalesce(tostring(column_ifexists("numberofrowsreturned_s", "")), tostring(column_ifexists("numberOfRowsReturned_s", "")), tostring(column_ifexists("NumberOfRowsReturned_s", "")), "0"))
+      | extend shape_key = iff(isnotempty(shape_sig), shape_sig, hash_sha256(raw_text))
+      | summarize
+          database = take_any(db_name),
+          container = take_any(coll_name),
+          shape_id = take_any(shape_key),
+          sample_query_text = take_any(raw_text),
+          returned_rows = sum(returned_count)
+        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+  
+  let joined = materialize(
+      queries
+      | join kind=inner reqs on activityId_g
+  );
+  
+  let top_shapes = materialize(
+      joined
+      | summarize
+          execution_count = count(),
+          total_ru = sum(total_charge),
+          max_ru = max(total_charge),
+          total_returned_rows = sum(returned_rows),
+          throttled_count = sum(is_429),
+          sample_text = take_any(sample_query_text)
+        by database, container, shape_id
+      | top 10 by total_ru desc
+  );
+  
+  top_shapes
+  | project
+      database, container, shape_id, sample_text,
+      execution_count, total_ru, max_ru, total_returned_rows,
+      throttled_count
+  
+  // === Query 2: Window & Attributed Totals Query ===
+  let reqs = AzureDiagnostics
+      | where Category == "DataPlaneRequests" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
+      | where _ResourceId endswith "/databaseaccounts/cosmos-prod-eastus"
+      | summarize
+          total_charge = sum(todouble(coalesce(tostring(column_ifexists("requestCharge_s", "")), tostring(column_ifexists("RequestCharge_s", "")), "0"))),
+          earliest_time = min(TimeGenerated)
+        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+  
+  let queries = AzureDiagnostics
+      | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
+      | where _ResourceId endswith "/databaseaccounts/cosmos-prod-eastus"
+      | summarize by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+  
+  let window_total = toscalar(reqs | summarize sum(total_charge));
+  let min_time = toscalar(reqs | summarize min(earliest_time));
+  
+  queries
+  | join kind=inner reqs on activityId_g
+  | summarize
+      attributed_total_ru = sum(total_charge),
+      total_executions = count()
+  | extend
+      window_total_ru = window_total,
+      min_time_generated = min_time
+  
+  '''
+# ---

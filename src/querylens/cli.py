@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from querylens.adapters.cosmos import BudgetExceededError, CosmosAdapter
 from querylens.adapters.protocol import DatabaseAdapter
 from querylens.config import Settings
+from querylens.discover_cli import discover
 from querylens.logging import configure_logging
 from querylens.model import (
     Finding,
@@ -292,6 +293,8 @@ def run(
 
     sys.exit(0)
 
+
+cli.add_command(discover)
 
 main = cli
 
