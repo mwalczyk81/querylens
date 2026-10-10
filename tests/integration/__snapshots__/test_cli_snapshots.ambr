@@ -5,6 +5,7 @@
     'documents_returned': 0,
     'documents_scanned': 0,
     'error_message': "HTTP 400: Syntax error, incorrect syntax near 'FROM'.",
+    'has_partition_key': False,
     'index_metrics': None,
     'is_cross_partition': False,
     'is_partial': False,
@@ -13,4 +14,21 @@
     'query_text': 'SELECT FROM c',
     'request_charge': 0.0,
   })
+# ---
+# name: TestCliSnapshots.test_cli_partial_results_table_snapshot
+  '''
+  ┌──────────────────────────────────────────── QueryLens Workload Profile ─────────────────────────────────────────────┐
+  │ Database: snap-db  |  Container: orders  |  Page size: 100                                                          │
+  │ Executed: 2/2 queries  |  Total RUs: 25.00 RUs  |  Budget: 20.00 RUs (EXCEEDED)                                     │
+  └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+  ┌───────┬─────────────────┬─────────────────┬──────────────┬───────────┬───────────┬──────────┬──────────────────────┐
+  │  Rank │ Query ID        │         RU Cost │  Server time │   Scanned │  Returned │ Fan-Out  │ Findings             │
+  ├───────┼─────────────────┼─────────────────┼──────────────┼───────────┼───────────┼──────────┼──────────────────────┤
+  │     1 │ q_unscoped      │ 15.00 (partial) │      12.5 ms │       200 │        50 │ unknown  │ n/a (partial)        │
+  │     2 │ q_scoped        │ 10.00 (partial) │       8.0 ms │       100 │        30 │    No    │ n/a (partial)        │
+  └───────┴─────────────────┴─────────────────┴──────────────┴───────────┴───────────┴──────────┴──────────────────────┘
+  
+  ⚠️ Execution aborted: Cumulative RU budget ceiling reached (25.00 / 20.00 RUs)
+  
+  '''
 # ---

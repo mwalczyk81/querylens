@@ -15,6 +15,9 @@ def rule_scan_to_return_gap(cost: QueryCost, settings: Settings) -> list[Finding
     Returns:
         list[Finding]: Diagnostic findings if scan gap exceeds configured limits.
     """
+    if cost.is_partial:
+        return []
+
     scanned = cost.documents_scanned
     returned = cost.documents_returned
 

@@ -173,3 +173,51 @@ class TestReports:
         assert "[ERROR]" in output
         assert "Diagnostic Details:" in output
         assert "Query Execution Error: Syntax error near 'FROM'" in output
+
+    def test_render_console_report_partial_semantics(self) -> None:
+        """Render console report for partial costs showing unknown fan-out and partial findings."""
+        console = Console(record=True, width=120)
+        unscoped_partial = QueryCost(
+            query_id="q_partial_unscoped",
+            query_text="SELECT * FROM c WHERE c.type = 'a'",
+            request_charge=15.0,
+            latency_ms=10.0,
+            documents_scanned=100,
+            documents_returned=20,
+            is_cross_partition=False,
+            is_partial=True,
+            has_partition_key=False,
+        )
+        scoped_partial = QueryCost(
+            query_id="q_partial_scoped",
+            query_text="SELECT * FROM c WHERE c.pk = '1'",
+            request_charge=8.0,
+            latency_ms=5.0,
+            documents_scanned=50,
+            documents_returned=10,
+            is_cross_partition=False,
+            is_partial=True,
+            has_partition_key=True,
+        )
+        summary = WorkloadRunSummary(
+            timestamp="2026-10-10T12:00:00Z",
+            database="test-db",
+            container="orders",
+            total_queries=2,
+            completed_queries=2,
+            total_ru_consumed=23.0,
+            ru_budget=20.0,
+            budget_exceeded=True,
+            results=[
+                QueryResultSummary(cost=unscoped_partial, findings=[]),
+                QueryResultSummary(cost=scoped_partial, findings=[]),
+            ],
+        )
+
+        render_console_report(summary, console=console)
+        output = console.export_text()
+
+        assert "n/a (partial)" in output
+        assert "unknown" in output
+        assert "No" in output
+        assert "(partial)" in output

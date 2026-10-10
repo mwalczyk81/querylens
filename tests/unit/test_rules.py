@@ -71,6 +71,24 @@ class TestHighRuCostRule:
         assert finding.evidence["request_charge"] == 250.0
         assert finding.evidence["threshold"] == 200.0
 
+    def test_high_ru_partial_cost_evaluated(self) -> None:
+        """Evaluate QL001 findings even on partial costs as a valid lower bound."""
+        settings = Settings(high_ru_warning=50.0, high_ru_critical=200.0)
+        cost = QueryCost(
+            query_id="q_partial",
+            query_text="SELECT * FROM c",
+            request_charge=75.0,
+            latency_ms=20.0,
+            documents_scanned=500,
+            documents_returned=10,
+            is_cross_partition=False,
+            is_partial=True,
+        )
+        findings = rule_high_ru_cost(cost, settings)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "QL001"
+        assert findings[0].severity == Severity.HIGH
+
 
 class TestCrossPartitionFanoutRule:
     """Tests covering QL002 cross-partition fan-out detection."""
@@ -108,6 +126,22 @@ class TestCrossPartitionFanoutRule:
         assert finding.rule_id == "QL002"
         assert finding.severity == Severity.MEDIUM
         assert finding.evidence["is_cross_partition"] is True
+
+    def test_cross_partition_skipped_on_partial(self) -> None:
+        """Skip QL002 fan-out evaluation on partial costs."""
+        settings = Settings()
+        cost = QueryCost(
+            query_id="q_partial",
+            query_text="SELECT * FROM c",
+            request_charge=35.0,
+            latency_ms=15.0,
+            documents_scanned=20,
+            documents_returned=10,
+            is_cross_partition=True,
+            is_partial=True,
+        )
+        findings = rule_cross_partition_fanout(cost, settings)
+        assert findings == []
 
 
 class TestScanToReturnGapRule:
@@ -201,3 +235,23 @@ class TestScanToReturnGapRule:
         assert finding.severity == Severity.CRITICAL
         assert finding.evidence["documents_scanned"] == 1200
         assert finding.evidence["documents_returned"] == 0
+
+    def test_scan_gap_skipped_on_partial(self) -> None:
+        """Skip QL003 scan gap evaluation on partial costs."""
+        settings = Settings(
+            scan_gap_ratio_warning=10.0,
+            scan_gap_ratio_critical=100.0,
+            scan_gap_absolute_threshold=1000,
+        )
+        cost = QueryCost(
+            query_id="q_partial",
+            query_text="SELECT * FROM c",
+            request_charge=95.0,
+            latency_ms=30.0,
+            documents_scanned=5000,
+            documents_returned=1,
+            is_cross_partition=False,
+            is_partial=True,
+        )
+        findings = rule_scan_to_return_gap(cost, settings)
+        assert findings == []

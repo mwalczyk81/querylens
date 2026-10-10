@@ -73,6 +73,7 @@
               "documents_returned": { "type": "integer" },
               "is_cross_partition": { "type": "boolean" },
               "is_partial": { "type": "boolean" },
+              "has_partition_key": { "type": "boolean" },
               "error_message": { "type": ["string", "null"] },
               "activity_id": { "type": ["string", "null"] },
               "index_metrics": {

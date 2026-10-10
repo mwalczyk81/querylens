@@ -246,6 +246,9 @@ class QueryCost(BaseModel):
     activity_id: str | None = Field(
         default=None, description="Cosmos DB activity ID for the request"
     )
+    has_partition_key: bool = Field(
+        default=False, description="Whether query had a targeted partition key specified"
+    )
 
 
 class Finding(BaseModel):

@@ -371,6 +371,7 @@ class CosmosAdapter:
                         documents_scanned=0,
                         documents_returned=0,
                         is_cross_partition=False,
+                        has_partition_key=query_def.partition_key is not None,
                         error_message=concise_msg,
                         activity_id=activity_id,
                     )
@@ -388,6 +389,7 @@ class CosmosAdapter:
                 documents_returned=agg["documents_returned"],
                 is_cross_partition=agg["is_cross_partition"],
                 is_partial=budget_breached,
+                has_partition_key=query_def.partition_key is not None,
                 index_metrics=agg["index_metrics"],
             )
 

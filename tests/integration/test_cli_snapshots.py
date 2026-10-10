@@ -1,12 +1,15 @@
 """CLI snapshot tests using syrupy for terminal formatting and JSON structure (T031)."""
 
 import json
+from collections.abc import Iterator
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
 from syrupy.assertion import SnapshotAssertion
 
+from querylens.adapters.cosmos import BudgetExceededError
 from querylens.cli import cli
 from querylens.model import QueryCost
 
@@ -183,3 +186,72 @@ queries:
         )
         assert parsed["results"][0]["cost"]["activity_id"] == "00000000-0000-0000-0000-000000000001"
         assert parsed["results"][0]["cost"] == snapshot
+
+    @patch("querylens.cli.get_adapter")
+    def test_cli_partial_results_table_snapshot(
+        self,
+        mock_get_adapter: MagicMock,
+        tmp_path: Path,
+        snapshot: SnapshotAssertion,
+    ) -> None:
+        """Capture snapshot of CLI terminal report with partial results and budget exceeded."""
+        workload_yaml = tmp_path / "workload_partial.yaml"
+        workload_yaml.write_text(
+            """
+version: "1"
+database: "snap-db"
+container: "orders"
+ru_budget: 20.0
+queries:
+  - id: "q_unscoped"
+    query: "SELECT * FROM c WHERE c.category = 'books'"
+  - id: "q_scoped"
+    query: "SELECT * FROM c WHERE c.pk = 'A1'"
+    partition_key: "A1"
+""",
+            encoding="utf-8",
+        )
+
+        mock_adapter = MagicMock()
+
+        def fake_collect(_workload: object) -> Iterator[QueryCost]:
+            yield QueryCost(
+                query_id="q_scoped",
+                query_text="SELECT * FROM c WHERE c.pk = 'A1'",
+                request_charge=10.0,
+                latency_ms=8.0,
+                documents_scanned=100,
+                documents_returned=30,
+                is_cross_partition=False,
+                is_partial=True,
+                has_partition_key=True,
+            )
+            raise BudgetExceededError(
+                partial_cost=QueryCost(
+                    query_id="q_unscoped",
+                    query_text="SELECT * FROM c WHERE c.category = 'books'",
+                    request_charge=15.0,
+                    latency_ms=12.5,
+                    documents_scanned=200,
+                    documents_returned=50,
+                    is_cross_partition=False,
+                    is_partial=True,
+                    has_partition_key=False,
+                ),
+                cumulative_ru=25.0,
+            )
+
+        mock_adapter.collect.side_effect = fake_collect
+        mock_get_adapter.return_value = mock_adapter
+
+        runner = CliRunner(env={"COLUMNS": "120"})
+        result = runner.invoke(
+            cli,
+            ["run", str(workload_yaml), "--endpoint", "https://localhost:8081/"],
+        )
+        assert result.exit_code == 2
+        assert "(partial)" in result.output
+        assert "unknown" in result.output
+        assert "n/a (partial)" in result.output
+        assert "⚠️ Execution aborted: Cumulative RU budget ceiling reached" in result.output
+        assert result.output == snapshot

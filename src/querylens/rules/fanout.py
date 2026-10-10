@@ -14,6 +14,9 @@ def rule_cross_partition_fanout(cost: QueryCost, _settings: Settings) -> list[Fi
     Returns:
         list[Finding]: Diagnostic finding if query executed cross-partition.
     """
+    if cost.is_partial:
+        return []
+
     if cost.is_cross_partition:
         return [
             Finding(

@@ -73,7 +73,14 @@ def render_console_report(summary: WorkloadRunSummary, console: Console | None =
         if cost.is_partial:
             ru_str += " [italic red](partial)[/italic red]"
 
-        fan_out_str = "[bold red]Yes[/bold red]" if cost.is_cross_partition else "[green]No[/green]"
+        if cost.is_partial:
+            fan_out_str = (
+                "[green]No[/green]" if cost.has_partition_key else "[yellow]unknown[/yellow]"
+            )
+        else:
+            fan_out_str = (
+                "[bold red]Yes[/bold red]" if cost.is_cross_partition else "[green]No[/green]"
+            )
 
         finding_badges: list[str] = []
         if cost.error_message:
@@ -88,7 +95,12 @@ def render_console_report(summary: WorkloadRunSummary, console: Console | None =
             else:
                 finding_badges.append(f"[blue][INFO] {finding.rule_id}[/blue]")
 
-        findings_str = ", ".join(finding_badges) if finding_badges else "[dim]None[/dim]"
+        if finding_badges:
+            findings_str = ", ".join(finding_badges)
+        elif cost.is_partial:
+            findings_str = "[dim]n/a (partial)[/dim]"
+        else:
+            findings_str = "[dim]None[/dim]"
 
         table.add_row(
             str(rank),
