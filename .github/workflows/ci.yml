@@ -30,11 +30,17 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked
 
-      - name: Ruff Lint Check
-        run: uv run ruff check .
+      - name: Cache pre-commit
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
 
-      - name: Ruff Format Check
-        run: uv run ruff format --check .
+      # Note: The ruff version in .pre-commit-config.yaml (rev) and pyproject.toml must stay in sync.
+      - name: Pre-commit Hooks
+        env:
+          SKIP: pyrefly
+        run: uv run pre-commit run --all-files --show-diff-on-failure
 
       - name: Pyrefly Type Check
         run: uv run pyrefly check
