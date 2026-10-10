@@ -19,24 +19,23 @@ def render_console_report(summary: WorkloadRunSummary, console: Console | None =
         console = Console()
 
     # Header Panel
-    budget_info = (
-        f"{summary.total_ru_consumed:.2f} / {summary.ru_budget:.2f} RUs"
-        if summary.ru_budget
-        else f"{summary.total_ru_consumed:.2f} RUs"
-    )
     status_str = (
         "[bold red]EXCEEDED[/bold red]"
         if summary.budget_exceeded
         else "[bold green]OK[/bold green]"
     )
+    if summary.ru_budget is not None:
+        budget_field = f"[bold cyan]Budget:[/bold cyan] {summary.ru_budget:.2f} RUs ({status_str})"
+    else:
+        budget_field = "[bold cyan]Budget:[/bold cyan] none"
 
     header_text = (
         f"[bold cyan]Database:[/bold cyan] {summary.database}  |  "
         f"[bold cyan]Container:[/bold cyan] {summary.container}\n"
         f"[bold cyan]Executed:[/bold cyan] "
         f"{summary.completed_queries}/{summary.total_queries} queries  |  "
-        f"[bold cyan]Total RUs:[/bold cyan] {budget_info}  |  "
-        f"[bold cyan]Budget Status:[/bold cyan] {status_str}"
+        f"[bold cyan]Total RUs:[/bold cyan] {summary.total_ru_consumed:.2f} RUs  |  "
+        f"{budget_field}"
     )
     console.print(Panel(header_text, title="[bold]QueryLens Workload Profile[/bold]", box=ROUNDED))
 
@@ -45,7 +44,7 @@ def render_console_report(summary: WorkloadRunSummary, console: Console | None =
     table.add_column("Rank", justify="right", style="dim", width=5)
     table.add_column("Query ID", style="cyan", min_width=15)
     table.add_column("RU Cost", justify="right", min_width=10)
-    table.add_column("Latency", justify="right", min_width=10)
+    table.add_column("Server time", justify="right", min_width=12)
     table.add_column("Scanned", justify="right", min_width=9)
     table.add_column("Returned", justify="right", min_width=9)
     table.add_column("Fan-Out", justify="center", width=8)

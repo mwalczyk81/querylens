@@ -4,7 +4,7 @@ container: "unindexed_items"
 
 queries:
   # Expected: QL001 (High RU Cost) and QL002 (Cross-Partition Fan-Out)
-  # Full collection scan across 60 partition keys consuming ~89 RUs (> 50 RU threshold).
+  # Full collection scan across 60 partition keys consuming ~63 RUs (> 50 RU threshold).
   - id: "high_ru_scan"
     query: "SELECT * FROM c"
 
@@ -15,7 +15,7 @@ queries:
 
   # Expected: QL003 (Scan-to-Return Gap - critical)
   # 'unindexed_tag' is excluded from the container indexing policy.
-  # Forces Cosmos DB to scan 1,200 documents while returning only 1 matching document.
+  # Forces Cosmos DB to scan 1,320 documents while returning only 1 matching document.
   - id: "scan_gap_unindexed"
     query: "SELECT * FROM c WHERE c.unindexed_tag = 'target'"
 
@@ -28,7 +28,7 @@ queries:
 
   # Expected: None (Clean Control - Single-Partition Query)
   # Targeted single-partition query with partition_key specified.
-  # Retrieves all ~20 documents in partition 'cat-0' with a 1:1 scan-to-return ratio.
+  # Retrieves all ~121 documents in partition 'cat-0' across multiple pages with a 1:1 scan-to-return ratio.
   - id: "control_single_partition_multipage"
     query: "SELECT * FROM c WHERE c.category = 'cat-0'"
     partition_key: "cat-0"

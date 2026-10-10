@@ -122,6 +122,8 @@ class TestReports:
         assert "q1-high-ru" in output
         assert "q2-med-ru" in output
         assert "q3-low-ru" in output
+        assert "Server time" in output
+        assert "Budget: none" in output
         assert "Diagnostic Details:" in output
         assert "High RU Cost" in output
 
@@ -134,6 +136,7 @@ class TestReports:
         output = console.export_text()
 
         assert "EXCEEDED" in output
+        assert "Budget: 300.00 RUs (EXCEEDED)" in output
         assert "Execution aborted: Cumulative RU budget ceiling reached" in output
         assert "(partial)" in output
 
