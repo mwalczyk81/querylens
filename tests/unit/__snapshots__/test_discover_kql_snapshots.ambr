@@ -53,12 +53,14 @@
       throttled_count
   
   // === Query 2: Window & Attributed Totals Query ===
-  let reqs = AzureDiagnostics
+  let reqs = materialize(
+      AzureDiagnostics
       | where Category == "DataPlaneRequests" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
       | summarize
           total_charge = sum(todouble(coalesce(tostring(column_ifexists("requestCharge_s", "")), tostring(column_ifexists("RequestCharge_s", "")), "0"))),
           earliest_time = min(TimeGenerated)
-        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "")
+  );
   
   let queries = AzureDiagnostics
       | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
@@ -134,13 +136,15 @@
       throttled_count
   
   // === Query 2: Window & Attributed Totals Query ===
-  let reqs = AzureDiagnostics
+  let reqs = materialize(
+      AzureDiagnostics
       | where Category == "DataPlaneRequests" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
       | where _ResourceId endswith "/databaseaccounts/cosmos-prod-eastus"
       | summarize
           total_charge = sum(todouble(coalesce(tostring(column_ifexists("requestCharge_s", "")), tostring(column_ifexists("RequestCharge_s", "")), "0"))),
           earliest_time = min(TimeGenerated)
-        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "")
+  );
   
   let queries = AzureDiagnostics
       | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"

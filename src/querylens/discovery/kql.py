@@ -129,12 +129,14 @@ def build_totals_query(account_filter: str | None = None) -> str:
     """
     acct_clause = _build_account_clause(account_filter)
 
-    return f"""let reqs = AzureDiagnostics
+    return f"""let reqs = materialize(
+    AzureDiagnostics
     | where Category == "DataPlaneRequests" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
 {acct_clause}    | summarize
         total_charge = sum(todouble({REQUEST_CHARGE_EXPR})),
         earliest_time = min(TimeGenerated)
-      by activityId_g = {ACTIVITY_ID_EXPR};
+      by activityId_g = {ACTIVITY_ID_EXPR}
+);
 
 let queries = AzureDiagnostics
     | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"

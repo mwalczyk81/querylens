@@ -36,6 +36,7 @@ def test_build_totals_query_default() -> None:
     assert 'Category == "DataPlaneRequests"' in query
     assert 'Category == "QueryRuntimeStatistics"' in query
     assert "attributed_total_ru = sum(total_charge)" in query
+    assert "let reqs = materialize(" in query
     assert "window_total_ru = window_total" in query
     assert "min_time_generated = min_time" in query
     assert "_ResourceId endswith" not in query
