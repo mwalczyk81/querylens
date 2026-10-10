@@ -32,8 +32,3 @@ queries:
   - id: "control_single_partition_multipage"
     query: "SELECT * FROM c WHERE c.category = 'cat-0'"
     partition_key: "cat-0"
-
-  # Expected: Handled query execution syntax error (HTTP 400 Bad Request)
-  # Deliberately malformed SQL syntax; yields a zero-RU row with captured error message.
-  - id: "bad_syntax_error"
-    query: "SELECT FROM c WHERE"

@@ -15,6 +15,7 @@ from azure.core.exceptions import ClientAuthenticationError, ServiceRequestError
 from azure.cosmos.exceptions import CosmosHttpResponseError, CosmosResourceNotFoundError
 from click.testing import CliRunner
 
+from querylens.adapters.cosmos import BudgetExceededError
 from querylens.cli import cli
 from querylens.model import QueryCost
 
@@ -466,3 +467,203 @@ queries:
         )
         assert result.exit_code == 3
         assert "Rate limit exceeded (HTTP 429 RequestRateTooLarge)" in result.output
+
+    @patch("querylens.cli.get_adapter")
+    def test_exit_code_1_on_query_execution_error(
+        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        """Exit code 1 after rendering report when a query ends with error_message."""
+        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml.write_text(
+            """
+version: "1"
+database: "db"
+container: "c"
+queries:
+  - id: "q_err"
+    query: "SELECT FROM c"
+""",
+            encoding="utf-8",
+        )
+
+        mock_adapter = MagicMock()
+        mock_adapter.collect.return_value = [
+            QueryCost(
+                query_id="q_err",
+                query_text="SELECT FROM c",
+                request_charge=0.0,
+                latency_ms=0.0,
+                documents_scanned=0,
+                documents_returned=0,
+                is_cross_partition=False,
+                error_message="HTTP 400: Syntax error near FROM",
+            )
+        ]
+        mock_get_adapter.return_value = mock_adapter
+
+        runner = CliRunner(env={"COLUMNS": "120"})
+        result = runner.invoke(
+            cli,
+            ["run", str(workload_yaml), "--endpoint", "https://localhost:8081/"],
+        )
+        assert result.exit_code == 1
+        assert "[ERROR]" in result.output
+        assert "HTTP 400: Syntax error near FROM" in result.output
+
+    @patch("querylens.cli.get_adapter")
+    def test_exit_code_precedence_budget_exceeded_over_fail_on(
+        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        """Budget exceeded (exit 2) takes precedence over --fail-on gate breach (exit 4)."""
+        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml.write_text(
+            """
+version: "1"
+database: "db"
+container: "c"
+ru_budget: 50.0
+queries:
+  - id: "q1"
+    query: "SELECT * FROM c"
+""",
+            encoding="utf-8",
+        )
+
+        cost = QueryCost(
+            query_id="q1",
+            query_text="SELECT * FROM c",
+            request_charge=60.0,  # Breaches budget (50.0) and triggers QL001 (>50.0)
+            latency_ms=20.0,
+            documents_scanned=100,
+            documents_returned=100,
+            is_cross_partition=False,
+        )
+        mock_adapter = MagicMock()
+        mock_adapter.collect.side_effect = BudgetExceededError(cost, 60.0)
+        mock_get_adapter.return_value = mock_adapter
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "run",
+                str(workload_yaml),
+                "--endpoint",
+                "https://localhost:8081/",
+                "--fail-on",
+                "high",
+            ],
+        )
+        assert result.exit_code == 2
+
+    @patch("querylens.cli.get_adapter")
+    def test_exit_code_precedence_budget_exceeded_over_query_error(
+        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        """Budget exceeded (exit 2) takes precedence over query execution error (exit 1)."""
+        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml.write_text(
+            """
+version: "1"
+database: "db"
+container: "c"
+ru_budget: 50.0
+queries:
+  - id: "q_err"
+    query: "SELECT FROM c"
+  - id: "q_heavy"
+    query: "SELECT * FROM c"
+""",
+            encoding="utf-8",
+        )
+
+        def mock_collect(w: Any) -> Any:
+            yield QueryCost(
+                query_id="q_err",
+                query_text="SELECT FROM c",
+                request_charge=0.0,
+                latency_ms=0.0,
+                documents_scanned=0,
+                documents_returned=0,
+                is_cross_partition=False,
+                error_message="HTTP 400: Syntax error",
+            )
+            partial = QueryCost(
+                query_id="q_heavy",
+                query_text="SELECT * FROM c",
+                request_charge=60.0,
+                latency_ms=20.0,
+                documents_scanned=100,
+                documents_returned=100,
+                is_cross_partition=False,
+            )
+            raise BudgetExceededError(partial, 60.0)
+
+        mock_adapter = MagicMock()
+        mock_adapter.collect.side_effect = mock_collect
+        mock_get_adapter.return_value = mock_adapter
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["run", str(workload_yaml), "--endpoint", "https://localhost:8081/"],
+        )
+        assert result.exit_code == 2
+
+    @patch("querylens.cli.get_adapter")
+    def test_exit_code_precedence_fail_on_over_query_error(
+        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        """Fail-on gate breach (exit 4) takes precedence over query execution error (exit 1)."""
+        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml.write_text(
+            """
+version: "1"
+database: "db"
+container: "c"
+queries:
+  - id: "q_heavy"
+    query: "SELECT * FROM c"
+  - id: "q_err"
+    query: "SELECT FROM c"
+""",
+            encoding="utf-8",
+        )
+
+        mock_adapter = MagicMock()
+        mock_adapter.collect.return_value = [
+            QueryCost(
+                query_id="q_heavy",
+                query_text="SELECT * FROM c",
+                request_charge=250.0,  # CRITICAL severity finding
+                latency_ms=50.0,
+                documents_scanned=100,
+                documents_returned=100,
+                is_cross_partition=False,
+            ),
+            QueryCost(
+                query_id="q_err",
+                query_text="SELECT FROM c",
+                request_charge=0.0,
+                latency_ms=0.0,
+                documents_scanned=0,
+                documents_returned=0,
+                is_cross_partition=False,
+                error_message="HTTP 400: Syntax error",
+            ),
+        ]
+        mock_get_adapter.return_value = mock_adapter
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "run",
+                str(workload_yaml),
+                "--endpoint",
+                "https://localhost:8081/",
+                "--fail-on",
+                "critical",
+            ],
+        )
+        assert result.exit_code == 4

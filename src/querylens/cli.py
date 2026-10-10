@@ -263,6 +263,11 @@ def run(
         render_console_report(summary)
 
     # 8. Check Exit Codes
+    # Precedence order:
+    # 1. RU Budget Exceeded (2): Critical circuit breaker halted execution early
+    # 2. Diagnostic Gate Breached (4): Finding severity met or exceeded --fail-on threshold
+    # 3. Query Execution Error (1): One or more queries failed execution (e.g. syntax error)
+    # 4. Success (0): All queries executed cleanly and no gates breached
     if budget_exceeded:
         sys.exit(2)
 
@@ -271,6 +276,9 @@ def run(
         all_findings: list[Finding] = [f for r in results for f in r.findings]
         if any(f.severity >= threshold for f in all_findings):
             sys.exit(4)
+
+    if any(r.cost.error_message for r in results):
+        sys.exit(1)
 
     sys.exit(0)
 

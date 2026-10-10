@@ -164,7 +164,7 @@ queries:
             cli,
             ["run", str(workload_yaml), "--endpoint", "https://localhost:8081/"],
         )
-        assert table_result.exit_code == 0
+        assert table_result.exit_code == 1
         assert "[ERROR]" in table_result.output
         assert "HTTP 400: Syntax error, incorrect syntax near 'FROM'." in table_result.output
 
@@ -173,7 +173,7 @@ queries:
             cli,
             ["run", str(workload_yaml), "--endpoint", "https://localhost:8081/", "--json"],
         )
-        assert json_result.exit_code == 0
+        assert json_result.exit_code == 1
         parsed = json.loads(json_result.output)
         assert (
             parsed["results"][0]["cost"]["error_message"]

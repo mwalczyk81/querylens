@@ -8,9 +8,11 @@ from urllib.parse import urlparse
 import pytest
 import yaml
 from azure.cosmos import CosmosClient
+from click.testing import CliRunner
 from seed_emulator import EMULATOR_KEY, seed
 
 from querylens.adapters.cosmos import CosmosAdapter
+from querylens.cli import cli
 from querylens.config import Settings
 from querylens.model import QueryDefinition, Workload
 from querylens.rules import evaluate_rules
@@ -217,10 +219,55 @@ class TestCosmosAdapterEmulatorIntegration:
         assert r_single.is_cross_partition is False
         assert r_single.documents_returned > 100
 
-        # 6. Bad syntax query: returns 0 RU row with captured error message, NO findings
+        # Verify CLI execution on clean workload exits 0
+        runner = CliRunner(env={"QUERYLENS_COSMOS_KEY": EMULATOR_KEY, "COLUMNS": "120"})
+        res = runner.invoke(
+            cli,
+            [
+                "run",
+                str(workload_path),
+                "--endpoint",
+                EMULATOR_ENDPOINT,
+            ],
+        )
+        assert res.exit_code == 0
+        assert "[ERROR]" not in res.output
+
+    def test_example_workload_with_error(self, setup_emulator_container: None) -> None:
+        """Verify examples/workload-with-error.yaml captures syntax error and exits 1."""
+        workload_path = Path("examples/workload-with-error.yaml")
+        raw_yaml = yaml.safe_load(workload_path.read_text(encoding="utf-8"))
+        workload = Workload.model_validate(raw_yaml)
+
+        settings = Settings(
+            endpoint=EMULATOR_ENDPOINT,
+            cosmos_key=EMULATOR_KEY,
+            database=workload.database or "querylens_dev",
+            container=workload.container or "unindexed_items",
+        )
+        adapter = CosmosAdapter(settings)
+        results = list(adapter.collect(workload))
+        assert len(results) == len(workload.queries)
+
+        results_by_id = {r.query_id: r for r in results}
         r_bad = results_by_id["bad_syntax_error"]
         f_bad = evaluate_rules(r_bad, settings)
         assert len(f_bad) == 0
         assert r_bad.request_charge == 0.0
         assert r_bad.error_message is not None
         assert "Syntax error" in r_bad.error_message
+
+        # CLI execution on workload with errors must render the report and exit 1
+        runner = CliRunner(env={"QUERYLENS_COSMOS_KEY": EMULATOR_KEY, "COLUMNS": "120"})
+        res = runner.invoke(
+            cli,
+            [
+                "run",
+                str(workload_path),
+                "--endpoint",
+                EMULATOR_ENDPOINT,
+            ],
+        )
+        assert res.exit_code == 1
+        assert "[ERROR]" in res.output
+        assert "Syntax error" in res.output

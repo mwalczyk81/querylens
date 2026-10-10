@@ -91,11 +91,19 @@ QueryLens enforces deterministic exit codes designed for automated CI/CD pipelin
 | Exit Code | Classification | Trigger Condition |
 | :---: | :--- | :--- |
 | **`0`** | **Success** | All queries executed successfully without budget exhaustion, and all findings are below `--fail-on` threshold. |
-| **`1`** | **Validation / Usage Error** | CLI usage errors (unknown option, missing argument), invalid YAML, or invalid partition key format (length not 1–3, nulls, nested lists). |
+| **`1`** | **Validation / Usage / Query Error** | CLI usage errors (unknown option, missing argument), invalid YAML, invalid partition key format, or one or more queries failed execution (e.g. HTTP 400 syntax error). |
 | **`2`** | **Budget Exceeded** | Cumulative Request Units exceeded `--ru-budget`. Execution aborted mid-query; partial results returned. |
 | **`3`** | **Connection Error** | Network unreachable, DNS resolution error, or target database/container not found (HTTP 404). |
 | **`4`** | **Diagnostic Gate Breached** | At least one diagnostic finding met or exceeded `--fail-on <severity>`. |
 | **`5`** | **Authentication / Authorization Failure** | Invalid credentials, expired token, missing `Cosmos DB Built-in Data Reader` role, or HTTP 401/403. |
+
+### Exit Code Precedence
+When multiple conditions occur during a workload run, exit codes resolve by strict precedence:
+1. **`2` (Budget Exceeded)** — Safety circuit-breaker halts execution; results are partial.
+2. **`4` (Diagnostic Gate Breached)** — Quality gate failure evaluated across completed queries.
+3. **`1` (Query Error / Validation)** — Query syntax failure or invalid configuration.
+4. **`0` (Success)** — Clean execution with no gates breached.
+*(Connection `3` and authentication `5` errors terminate immediately when encountered).*
 
 ---
 
