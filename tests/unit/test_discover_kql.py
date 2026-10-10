@@ -16,6 +16,8 @@ def test_build_shapes_query_default() -> None:
     assert "materialize(" in query
     assert "top 20 by total_ru desc" in query
     assert "hash_sha256(raw_text)" in query
+    assert "by db_name, coll_name, shape_id" in query
+    assert "db_name, coll_name, shape_id, sample_text" in query
     assert "_ResourceId endswith" not in query
     # In US1, top_callers_per_shape is omitted
     assert "top_callers" not in query

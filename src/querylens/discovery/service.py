@@ -145,8 +145,8 @@ def run_discovery(
 
             shapes.append(
                 DiscoveredQueryShape(
-                    database=str(row["database"] or ""),
-                    container=str(row["container"] or ""),
+                    database=str(row["db_name"] or ""),
+                    container=str(row["coll_name"] or ""),
                     shape_id=str(row["shape_id"] or ""),
                     sample_query_text=sample_text,
                     execution_count=exec_count,

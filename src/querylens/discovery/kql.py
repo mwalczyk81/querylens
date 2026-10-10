@@ -83,8 +83,8 @@ let queries = AzureDiagnostics
         returned_count = todouble({NUMBER_OF_ROWS_RETURNED_EXPR})
     | extend shape_key = iff(isnotempty(shape_sig), shape_sig, hash_sha256(raw_text))
     | summarize
-        database = take_any(db_name),
-        container = take_any(coll_name),
+        db_name = take_any(db_name),
+        coll_name = take_any(coll_name),
         shape_id = take_any(shape_key),
         sample_query_text = take_any(raw_text),
         returned_rows = sum(returned_count)
@@ -104,13 +104,13 @@ let top_shapes = materialize(
         total_returned_rows = sum(returned_rows),
         throttled_count = sum(is_429),
         sample_text = take_any(sample_query_text)
-      by database, container, shape_id
+      by db_name, coll_name, shape_id
     | top {top_n} by total_ru desc
 );
 
 top_shapes
 | project
-    database, container, shape_id, sample_text,
+    db_name, coll_name, shape_id, sample_text,
     execution_count, total_ru, max_ru, total_returned_rows,
     throttled_count"""
 

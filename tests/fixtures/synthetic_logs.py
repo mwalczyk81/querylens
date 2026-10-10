@@ -59,8 +59,8 @@ def make_sample_shapes_table(
         LogsTable populated with sample query shape records.
     """
     columns = [
-        "database",
-        "container",
+        "db_name",
+        "coll_name",
         "shape_id",
         "sample_text",
         "execution_count",
