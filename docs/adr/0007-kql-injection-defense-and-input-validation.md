@@ -9,10 +9,11 @@ Technical Story: Because the Azure Monitor Logs Query REST API and SDK do not su
 ## Context and Problem Statement
 
 When users invoke `querylens discover`, several parameters dictate the scope and filtering of the log analysis:
-- `--workspace-id` (or `QUERYLENS_WORKSPACE_ID`): Log Analytics workspace identifier.
-- `--account`: Optional Cosmos DB database account filter.
-- `--window`: Lookback time window (e.g., `24h`, `7d`).
-- `--top`: Maximum number of expensive query shapes to return (e.g., `20`).
+
+* `--workspace-id` (or `QUERYLENS_WORKSPACE_ID`): Log Analytics workspace identifier.
+* `--account`: Optional Cosmos DB database account filter.
+* `--window`: Lookback time window (e.g., `24h`, `7d`).
+* `--top`: Maximum number of expensive query shapes to return (e.g., `20`).
 
 As established in [ADR 0006](file:///docs/adr/0006-azure-monitor-logs-query-contracts.md), the Azure Monitor Logs Query API does not accept parameterized queries (e.g., `@param` or variable declarations). How does QueryLens construct secure, performant KQL queries without exposing the system to injection vulnerabilities or data plane exfiltration?
 
@@ -56,23 +57,27 @@ All inputs are validated before any KQL string construction or network requests 
 ### 2. Layer 2: Dedicated KQL String-Literal Escaping
 
 When optional filter strings (such as `--account`) are interpolated into KQL string literals, they are escaped via a dedicated function `escape_kql_string`:
+
 ```python
 def escape_kql_string(value: str) -> str:
     """Escape characters in a string value for safe insertion into KQL double-quoted string literals.
-    
+
     Args:
         value: Input string to escape.
-        
+
     Returns:
         Escaped string safe for inclusion within KQL double quotes.
     """
     # Backslashes must be escaped first, followed by double quotes
     return value.replace("\\", "\\\\").replace('"', '\\"')
 ```
+
 In KQL, string literals enclosed in double quotes use backslash as the escape character:
+
 ```kusto
 | where _ResourceId has "/databaseaccounts/{escaped_account}"
 ```
+
 Combined with Layer 1's regex validation, injection into KQL syntax is mathematically impossible.
 
 ### 3. Native SDK `timespan` Routing
@@ -88,6 +93,7 @@ Instead, QueryLens passes the validated `datetime.timedelta` directly to the `Lo
 ### 4. Property-Based Testing Verification
 
 To uphold Constitution Principle III, `escape_kql_string` and input validation are subjected to generative property-based testing with `hypothesis`:
-* Generates randomized strings with control characters, quotes (`"`, `'`, `\```), semicolons, comment sequences (`//`, `/*`), pipes (`|`), and Unicode line breaks.
+
+* Generates randomized strings with control characters, quotes (`"`, `'`, `\```), semicolons, comment sequences (`//`,`/*`), pipes (`|`), and Unicode line breaks.
 * Asserts that `escape_kql_string` produces output that does not contain unescaped quotes or allow delimiter breakout.
 * Verifies that the regex validator rejects 100% of invalid account strings containing shell metacharacters, spaces, or punctuation.

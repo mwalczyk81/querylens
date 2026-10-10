@@ -1,9 +1,9 @@
 # Tasks: Cosmos DB Query Cost Discovery (`querylens discover`)
 
-**Feature Branch**: `002-query-cost-discovery`  
-**Specification**: [spec.md](spec.md) | **Implementation Plan**: [plan.md](plan.md)  
-**Data Model**: [data-model.md](data-model.md) | **Research**: [research.md](research.md)  
-**Contracts**: [contracts/discover-output-schema.json](contracts/discover-output-schema.json), [contracts/check-output-schema.json](contracts/check-output-schema.json)  
+**Feature Branch**: `002-query-cost-discovery`
+**Specification**: [spec.md](spec.md) | **Implementation Plan**: [plan.md](plan.md)
+**Data Model**: [data-model.md](data-model.md) | **Research**: [research.md](research.md)
+**Contracts**: [contracts/discover-output-schema.json](contracts/discover-output-schema.json), [contracts/check-output-schema.json](contracts/check-output-schema.json)
 
 ---
 
@@ -12,7 +12,7 @@
 **Purpose**: Dependency pinning, package initialization, column mappings, and test fixture scaffolding.
 
 - [x] T001 Pin azure-monitor-query==2.0.0 dependency in pyproject.toml, refresh uv.lock with uv lock, and confirm pip-audit and uv sync --locked pass
-- [x] T002 Create discovery package layout with public exports in src/querylens/discovery/__init__.py
+- [x] T002 Create discovery package layout with public exports in src/querylens/discovery/**init**.py
 - [x] T003 [P] Create synthetic Azure Monitor Logs table and row fixtures in tests/fixtures/synthetic_logs.py
 - [x] T004 [P] Implement type-safe KQL column mapping module with tostring and coalesce helpers in src/querylens/discovery/columns.py
 

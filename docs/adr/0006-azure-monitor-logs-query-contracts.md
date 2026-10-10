@@ -8,7 +8,7 @@ Technical Story: Before implementing `querylens discover`, verify the exact SDK 
 
 ## Context and Problem Statement
 
-`querylens discover` identifies expensive query shapes in Azure Cosmos DB for NoSQL by querying diagnostic telemetry stored in an Azure Log Analytics workspace. Unlike `querylens run` (which interacts directly with the Cosmos DB data plane via `azure-cosmos`), `discover` interacts strictly with the Azure Monitor control/query plane via `azure-monitor-query`. 
+`querylens discover` identifies expensive query shapes in Azure Cosmos DB for NoSQL by querying diagnostic telemetry stored in an Azure Log Analytics workspace. Unlike `querylens run` (which interacts directly with the Cosmos DB data plane via `azure-cosmos`), `discover` interacts strictly with the Azure Monitor control/query plane via `azure-monitor-query`.
 
 How does QueryLens reliably query Log Analytics workspaces, handle partial responses, enforce server-side query timeouts, map case-variant schema columns, and support 100% offline unit testing without live cloud dependencies?
 
@@ -33,7 +33,9 @@ Chosen option: "Option 1", because:
 ### 1. Verified SDK Signatures (`azure-monitor-query==2.0.0`)
 
 Empirical inspection of `azure.monitor.query.LogsQueryClient` confirms:
+
 * Method signature:
+
   ```python
   def query_workspace(
       self,
@@ -47,6 +49,7 @@ Empirical inspection of `azure.monitor.query.LogsQueryClient` confirms:
       **kwargs: Any,
   ) -> LogsQueryResult | LogsQueryPartialResult:
   ```
+
 * Parameter contracts:
   * `workspace_id`: Target Log Analytics workspace GUID (RFC 4122).
   * `query`: Kusto Query Language (KQL) query string.
@@ -57,6 +60,7 @@ Empirical inspection of `azure.monitor.query.LogsQueryClient` confirms:
 ### 2. Verified Response Handling (`LogsQueryResult` vs `LogsQueryPartialResult`)
 
 `LogsQueryClient.query_workspace` returns either `LogsQueryResult` or `LogsQueryPartialResult`:
+
 * **Complete Success (`LogsQueryResult`)**:
   * `result.status == LogsQueryStatus.SUCCESS`
   * `result.tables`: `list[LogsTable]`. Each `LogsTable` exposes:
@@ -69,17 +73,17 @@ Empirical inspection of `azure.monitor.query.LogsQueryClient` confirms:
   * `result.partial_data`: `list[LogsTable]`.
   * `result.partial_error`: `ODataV4Format` containing error details.
 * **Extraction Contract**:
+
   ```python
   tables: list[LogsTable] = (
-      result.tables
-      if isinstance(result, LogsQueryResult)
-      else result.partial_data
+      result.tables if isinstance(result, LogsQueryResult) else result.partial_data
   )
   ```
 
 ### 3. Absence of KQL Parameterization Mechanism
 
 Inspection of `azure-monitor-query`'s REST serialization reveals the POST payload sent to `https://api.loganalytics.io/v1/workspaces/{workspaceId}/query`:
+
 ```json
 {
   "query": "<KQL string>",
@@ -87,13 +91,16 @@ Inspection of `azure-monitor-query`'s REST serialization reveals the POST payloa
   "workspaces": []
 }
 ```
+
 Neither the Azure Monitor Logs REST API nor the Python SDK provides a parameterized query binding mechanism (such as SQL `@param` or KQL `declare query_parameters(...)`). Therefore, all parameter filtering in KQL must be constructed programmatically. Strict validation and escaping must be enforced at the application boundary (see [ADR 0007](file:///docs/adr/0007-kql-injection-defense-and-input-validation.md)).
 
 ### 4. Cloud-Free Test Fixtures
 
 `LogsTable` and `LogsTableRow` are lightweight classes that can be instantiated directly in test suites without network connections or mocked internals:
+
 ```python
 from azure.monitor.query import LogsTable, LogsTableRow
+
 
 def make_test_table(columns: list[str], rows: list[list[Any]]) -> LogsTable:
     return LogsTable(
@@ -102,6 +109,7 @@ def make_test_table(columns: list[str], rows: list[list[Any]]) -> LogsTable:
         rows=[LogsTableRow(columns, row) for row in rows],
     )
 ```
+
 This enables fast, deterministic unit and property tests with 0 live cloud dependencies.
 
 ### 5. Type-Safe Column Mapping with `tostring()` and `column_ifexists`
@@ -122,6 +130,7 @@ To guarantee complete resilience and strict type safety, QueryLens routes **EVER
 * **Collection Name**: `coalesce(tostring(column_ifexists("collectionName_s", "")), tostring(column_ifexists("collectionname_s", "")), tostring(column_ifexists("CollectionName_s", "")), "")`
 
 **Design Guarantees**:
+
 1. **Uniform String Join Keys**: Join keys on `activityId_g` strictly use the `tostring()`-evaluated value, eliminating GUID vs string join mismatch errors.
 2. **Missing Column Tolerance**: If an optional or deprecated column is completely missing, the expression evaluates to a safe fallback string (`""` or `"0"`), yielding `None` or `0` in Python, **never** a failed query.
 3. **Returned Rows vs Scanned Documents**: Cosmos DB diagnostic logs record `numberofrowsreturned_s` (documents returned). Diagnostic logs **do NOT contain** a scanned-documents metric (such as `retrievedDocumentCount` from client-side headers). Therefore, QueryLens strictly extracts returned rows and intentionally omits any scanned-documents metric from discovery.
@@ -131,29 +140,32 @@ To guarantee complete resilience and strict type safety, QueryLens routes **EVER
 Because Azure Monitor Log Analytics executes a script and returns **only the final tabular result set** (let assignments without `union` do not emit intermediate scalar outputs), QueryLens executes **two distinct, targeted KQL queries**:
 
 1. **Shapes Query (Top N)**:
-   - Evaluates pre-aggregated requests and queries joined 1-to-1 on `activityId_g`.
-   - Wraps `joined` in `materialize()` to guarantee the join is evaluated once.
-   - Summarizes top shapes and wraps `top_shapes` in `materialize()` so top-N ranking ties cannot diverge between the caller extraction join and the final projection.
-   - Extracts top 3 callers per shape partitioned by `caller_ru desc` (implemented in User Story 3; User Story 1 delivers the baseline query without callers).
-   - Returns at most $N$ rows.
+   * Evaluates pre-aggregated requests and queries joined 1-to-1 on `activityId_g`.
+   * Wraps `joined` in `materialize()` to guarantee the join is evaluated once.
+   * Summarizes top shapes and wraps `top_shapes` in `materialize()` so top-N ranking ties cannot diverge between the caller extraction join and the final projection.
+   * Extracts top 3 callers per shape partitioned by `caller_ru desc` (implemented in User Story 3; User Story 1 delivers the baseline query without callers).
+   * Returns at most $N$ rows.
 2. **Totals Query (1 Row Summary)**:
-   - Evaluates `DataPlaneRequests` and joined query shapes over the entire window.
-   - Returns a single 1-row table containing:
-     - `window_total_ru`: Total RU across all `DataPlaneRequests` in the window (the denominator, scoped to account).
-     - `attributed_total_ru`: Cumulative RU summed across ALL joined query shapes (not just the top N).
-     - `total_executions`: Count of all query executions across all shapes in the window.
-     - `min_time_generated`: `min(TimeGenerated)` from `DataPlaneRequests`.
-   - Client derives `unattributed_ru = max(0.0, window_total_ru - attributed_total_ru)`, `unattributed_ru_pct`, shape RU shares, and retention warning.
-   - Network transfer bound: At most $N$ shape rows plus 1 totals row.
+   * Evaluates `DataPlaneRequests` and joined query shapes over the entire window.
+   * Returns a single 1-row table containing:
+     * `window_total_ru`: Total RU across all `DataPlaneRequests` in the window (the denominator, scoped to account).
+     * `attributed_total_ru`: Cumulative RU summed across ALL joined query shapes (not just the top N).
+     * `total_executions`: Count of all query executions across all shapes in the window.
+     * `min_time_generated`: `min(TimeGenerated)` from `DataPlaneRequests`.
+   * Client derives `unattributed_ru = max(0.0, window_total_ru - attributed_total_ru)`, `unattributed_ru_pct`, shape RU shares, and retention warning.
+   * Network transfer bound: At most $N$ shape rows plus 1 totals row.
 
 ### 7. Account Filter and Materialization Invariants
 
 * **Account Filter Suffix**: To avoid term-splitting quirks with `has`, the account filter strictly uses:
+
   ```kusto
   | where _ResourceId endswith "/databaseaccounts/{escaped_account}"
   ```
+
   applied in **every sub-query** of both the shapes query and the totals query.
 * **Deterministic Materialization**:
+
   ```kusto
   let joined = materialize(
       queries
@@ -167,13 +179,15 @@ Because Azure Monitor Log Analytics executes a script and returns **only the fin
       | top N by total_ru desc
   );
   ```
+
   guarantees zero evaluation drift or tie-breaking discrepancies across CTE references.
 
 ### 8. Silent-Zero Guard
 
-If diagnostic settings stream `DataPlaneRequests` but `QueryRuntimeStatistics` is disabled or key columns (`requestCharge_s`, `activityId_g`, `querytext_s`) are empty, a naive query would return 0 total RU or empty results. 
+If diagnostic settings stream `DataPlaneRequests` but `QueryRuntimeStatistics` is disabled or key columns (`requestCharge_s`, `activityId_g`, `querytext_s`) are empty, a naive query would return 0 total RU or empty results.
 
 QueryLens implements a strict **Silent-Zero Guard**:
+
 * If `attributed_total_ru == 0` while `window_total_ru > 0`, OR if essential columns are completely unpopulated:
   * Abort execution with **exit code 1**.
   * Print an actionable error to `stderr` explaining that diagnostic telemetry is incomplete and directing the user to run `querylens discover --check`.
@@ -182,6 +196,7 @@ QueryLens implements a strict **Silent-Zero Guard**:
 ### 9. Exception Handling and Exit Code Mapping
 
 To comply with [ADR 0004](file:///docs/adr/0004-cli-first-design-and-deterministic-exit-codes.md), Azure Monitor client exceptions are mapped deterministically:
+
 * **Exit Code 5 (Auth / Permission Error)**:
   * `azure.core.exceptions.ClientAuthenticationError` (missing credentials, expired Entra token).
   * `azure.core.exceptions.HttpResponseError` when `error.status_code in (401, 403)` (e.g. caller lacks `Log Analytics Reader` role on the workspace).
@@ -198,12 +213,13 @@ To comply with [ADR 0004](file:///docs/adr/0004-cli-first-design-and-determinist
 
 > [!IMPORTANT]
 > **KQL is Never Executed in CI Pipelines**
-> 
+>
 > In accordance with Constitution Principle I (Read-Only Safety) and Principle III (Offline CI Verification), QueryLens automated test suites run with **zero live cloud dependencies**. CI tests utilize 100% synthetic `LogsTable` fixtures and golden snapshot tests.
-> 
+>
 > Therefore, **snapshot tests protect strictly against unintended query text regressions, NOT against semantic KQL execution correctness on live Azure backends.**
 
 To guarantee real-world query validity, QueryLens provides the `--print-kql` CLI option and enforces a mandatory manual qualification gate:
+
 * **`--print-kql` Tooling**: Developers can run `querylens discover --workspace-id <uuid> --print-kql` to generate and print **both queries** (the Shapes query and the Totals query) without network calls or credentials, allowing instant copy-pasting into the Azure portal Log Analytics query editor.
 * **Golden Snapshot Tests**: Golden snapshot tests (`test_discover_kql_snapshots.py`) assert the exact query text for both queries across argument combinations.
 * **Mandatory Release Qualification Gate**: **Every release MUST be gated on a manual validation run** following [docs/manual-testing.md](file:///docs/manual-testing.md):

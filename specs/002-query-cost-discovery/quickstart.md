@@ -1,17 +1,19 @@
 # Quickstart & Verification Guide: Cosmos DB Query Cost Discovery
 
-**Feature**: `002-query-cost-discovery` (`querylens discover`)  
-**Date**: 2026-10-10  
-**Status**: Completed (Updated with Review Findings)  
+**Feature**: `002-query-cost-discovery` (`querylens discover`)
+**Date**: 2026-10-10
+**Status**: Completed (Updated with Review Findings)
 
 ---
 
 ## Prerequisites
 
 1. **Python Environment**: Python 3.12+ with project dependencies installed:
+
    ```bash
    uv sync
    ```
+
 2. **Azure Entra ID Authentication** (for live runs against an actual Azure workspace):
    - User identity authenticated via Azure CLI (`az login`) or managed identity.
    - Entra role: `Log Analytics Reader` (or `Reader` / `Contributor`) assigned on the target Azure Log Analytics workspace.
@@ -40,7 +42,6 @@ uv run querylens discover \
 ```
 
 **Use Case**: Prints two demarcated queries (`Query 1: Top Query Shapes` and `Query 2: Window & Attributed Totals`). Copy each query directly into the **Azure Portal Logs query editor** to verify syntax, column resolution, and performance against your live workspace schema before running automated queries.
-
 
 ---
 
@@ -121,9 +122,11 @@ uv run querylens discover \
 
 > [!NOTE]
 > **Privacy Invariant (FR-012)**: In default `--json` output, `sample_query_text` is **OMITTED** entirely from every result item. It is included only if `--show-text` is explicitly passed:
+>
 > ```bash
 > uv run querylens discover --workspace-id 12345678-1234-1234-1234-123456789abc --show-text --json
 > ```
+>
 > In terminal console tables, `sample_query_text` is truncated to 200 characters by default, and displayed in full when `--show-text` is passed.
 
 Conforms to [discover-output-schema.json](file:///specs/002-query-cost-discovery/contracts/discover-output-schema.json).
@@ -181,7 +184,7 @@ uv run pytest --cov=querylens --cov-fail-under=85
 ## 5. Exit Code Verification Scenarios
 
 | Scenario | Invocation | Expected Exit Code | Expected Output |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Print KQL Query** | `uv run querylens discover --workspace-id <valid-uuid> --print-kql` | `0` | Formatted KQL query text to stdout |
 | **Successful Discovery** | `uv run querylens discover --workspace-id <valid-uuid>` | `0` | Rich table or JSON to stdout |
 | **Empty Results** | `uv run querylens discover --workspace-id <valid-uuid> --account empty-acct --json` | `0` | Valid JSON with `results: []` on stdout; notice on stderr |

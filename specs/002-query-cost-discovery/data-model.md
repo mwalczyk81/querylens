@@ -1,8 +1,8 @@
 # Data Model: Cosmos DB Query Cost Discovery
 
-**Feature**: `002-query-cost-discovery`  
-**Date**: 2026-10-10  
-**Status**: Completed  
+**Feature**: `002-query-cost-discovery`
+**Date**: 2026-10-10
+**Status**: Completed
 
 ---
 
@@ -13,7 +13,7 @@
 Represents an individual caller (identity principal or network IP) attributed to query shape execution.
 
 | Field | Type | Description | Validation Rules |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `identifier` | `str` | Anonymized or masked caller identifier (Entra ID principal GUID or client IP). | Non-empty string. |
 | `ru_share_pct` | `float` | Percentage of this query shape's RU consumed by this caller. | `0.0 <= ru_share_pct <= 100.0` |
 | `identifier_type` | `str` | Type of caller identifier. | Must be `"aad_principal"` or `"client_ip"`. |
@@ -23,7 +23,7 @@ Represents an individual caller (identity principal or network IP) attributed to
 Aggregated performance and cost metrics for a distinct query shape executing on a specific database container.
 
 | Field | Type | Description | Validation Rules |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `database` | `str` | Target Cosmos DB database name. | Non-empty string. |
 | `container` | `str` | Target Cosmos DB container collection name. | Non-empty string. |
 | `shape_id` | `str` | Canonical identifier for query structure (`shapesignature_s` or SHA-256 hash). | Non-empty string, hex/hash format. |
@@ -41,13 +41,12 @@ Aggregated performance and cost metrics for a distinct query shape executing on 
 > [!NOTE]
 > **Scanned Documents Omission**: A scanned-documents metric is intentionally omitted from the discovery model because Azure Cosmos DB diagnostic logs record only returned rows (`numberofrowsreturned_s`) and do not log scanned documents.
 
-
 ### 1.3 `WorkloadDiscoverySummary`
 
 Top-level summary entity returned by `querylens discover` representing aggregated discovery across the evaluation window.
 
 | Field | Type | Description | Validation Rules |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `window_start` | `datetime` | UTC start of the analyzed lookback window. | ISO 8601 UTC. |
 | `window_end` | `datetime` | UTC end of the analyzed lookback window. | ISO 8601 UTC, `window_end >= window_start`. |
 | `total_ru` | `float` | Total RU across ALL `DataPlaneRequests` in scope and window (the denominator). | `>= 0.0` |
@@ -62,13 +61,12 @@ Top-level summary entity returned by `querylens discover` representing aggregate
 > [!WARNING]
 > **Silent-Zero Guard Invariant**: If `attributed_total_ru == 0` while `total_ru > 0`, or if essential diagnostic columns (`requestCharge_s`, `activityId_g`, `querytext_s`) are absent/unpopulated in the logs, the model/service raises `TelemetryMisconfigurationError`, aborting execution with CLI exit code 1 and advising the user to run `querylens discover --check`.
 
-
 ### 1.4 `PreflightCheckReport`
 
 Output of `querylens discover --check` verifying diagnostic log readiness. Contains 100% quantitative metrics with zero query text or customer data.
 
 | Field | Type | Description | Validation Rules |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `categories_detected` | `list[str]` | Cosmos DB diagnostic categories found (e.g. `["DataPlaneRequests", "QueryRuntimeStatistics"]`). | List of non-empty strings. |
 | `row_counts` | `dict[str, int]` | Record count per detected diagnostic category. | All counts `>= 0`. |
 | `window_start` | `datetime` | UTC start of evaluated window. | ISO 8601 UTC. |
@@ -89,7 +87,7 @@ Output of `querylens discover --check` verifying diagnostic log readiness. Conta
 Internal configuration object validating CLI arguments and environment variables.
 
 | Field | Source | Validation Rules | Default |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `workspace_id` | `--workspace-id` or `QUERYLENS_WORKSPACE_ID` | RFC 4122 UUIDv4 format (`uuid.UUID`). Rejects invalid with exit 1. | *Required* |
 | `account_filter` | `--account` | Optional. Regex `^[a-zA-Z0-9][-a-zA-Z0-9]{1,42}[a-zA-Z0-9]$`. Rejects invalid with exit 1. | `None` |
 | `time_window` | `--window` | Duration string parsed into `timedelta` (`[1-9][0-9]*[mhd]`). Bounded: `5m` to `90d`. | `timedelta(hours=24)` (`24h`) |

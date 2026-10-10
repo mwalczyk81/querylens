@@ -1,7 +1,7 @@
 # Manual Testing & Release Qualification Guide
 
-**Target Feature**: `002-query-cost-discovery` (`querylens discover`)  
-**Audience**: Maintainers, Release Engineers, Developers  
+**Target Feature**: `002-query-cost-discovery` (`querylens discover`)
+**Audience**: Maintainers, Release Engineers, Developers
 
 ---
 
@@ -38,30 +38,36 @@ Before cutting any release tag (e.g. `v0.2.0`), perform the following steps agai
 `querylens discover --print-kql` generates two distinct KQL queries that must both be tested in the Azure Portal Logs query editor.
 
 1. Authenticate with Azure CLI:
+
    ```bash
    az login
    ```
+
 2. Generate both KQL queries using `--print-kql`:
+
    ```bash
    uv run querylens discover --workspace-id <YOUR_WORKSPACE_ID> --account <YOUR_ACCOUNT_NAME> --print-kql
    ```
+
    The output contains two demarcated sections:
    - `// === Query 1: Top Query Shapes Query ===`
    - `// === Query 2: Window & Attributed Totals Query ===`
 3. Open the **Azure Portal** and navigate to your target **Log Analytics workspace**.
 4. Open the **Logs** query editor.
 
-#### Validating Query 1 (Top Shapes):
-5. Copy Query 1 from terminal output, paste it into the query editor, and click **Run**.
-6. **Pass Criteria**:
+#### Validating Query 1 (Top Shapes)
+
+1. Copy Query 1 from terminal output, paste it into the query editor, and click **Run**.
+2. **Pass Criteria**:
    - Compiles and runs without semantic or syntax errors.
    - All columns (`numberofrowsreturned_s`, `requestCharge_s`, `shapesignature_s`, `activityId_g`, etc.) resolve cleanly via `column_ifexists()`.
    - Results return at most $N$ rows (where $N$ is `--top`).
    - The `top_callers` column produces a valid JSON dynamic array with up to 3 caller objects per shape.
 
-#### Validating Query 2 (Totals):
-7. Copy Query 2 from terminal output, paste it into the query editor, and click **Run**.
-8. **Pass Criteria**:
+#### Validating Query 2 (Totals)
+
+1. Copy Query 2 from terminal output, paste it into the query editor, and click **Run**.
+2. **Pass Criteria**:
    - Compiles and runs cleanly, returning exactly **1 row** with columns:
      - `window_total_ru`: Non-negative float representing all `DataPlaneRequests` in scope and window.
      - `attributed_total_ru`: Non-negative float representing RU of all joined queries.
@@ -79,6 +85,7 @@ uv run querylens discover --workspace-id <YOUR_WORKSPACE_ID> --check
 ```
 
 **Pass Criteria**:
+
 - Successfully displays category row counts (`DataPlaneRequests`, `QueryRuntimeStatistics`).
 - Displays time boundaries and retention health without error.
 - Displays column population percentages (0.0% to 100.0%).
@@ -96,6 +103,7 @@ uv run querylens discover --workspace-id <YOUR_WORKSPACE_ID> --top 10
 ```
 
 **Pass Criteria**:
+
 - Rich terminal table renders with header summary.
 - Displays total window RU and unattributed RU summary.
 - Ranked query shapes sorted descending by total RU.
@@ -113,6 +121,7 @@ uv run querylens discover --workspace-id <YOUR_WORKSPACE_ID> --top 10 --json > l
 ```
 
 **Pass Criteria**:
+
 - Emits valid JSON to `stdout` matching `contracts/discover-output-schema.json`.
 - Crucially, verify that `sample_query_text` is **omitted** from each result item in default JSON mode (FR-012).
 
@@ -127,6 +136,7 @@ uv run querylens discover --workspace-id <YOUR_WORKSPACE_ID> --top 10 --show-tex
 ```
 
 **Pass Criteria**:
+
 - `sample_query_text` is now **present** in each result item in JSON output.
 - Terminal table shows full query text without truncation.
 
@@ -141,6 +151,7 @@ uv run querylens discover --workspace-id <YOUR_WORKSPACE_ID> --account <ACCOUNT_
 ```
 
 **Pass Criteria**:
+
 - Exits immediately with **exit code 1**.
 - Emits a clear, actionable notice on `stderr` explaining that telemetry is incomplete and advising the user to run `querylens discover --check`.
 - Does **not** render a misleading table of zeros or empty success.
