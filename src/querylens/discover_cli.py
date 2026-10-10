@@ -13,7 +13,11 @@ from azure.identity import DefaultAzureCredential
 from azure.monitor.query import LogsQueryClient
 from rich.console import Console
 
-from querylens.discovery.kql import build_shapes_query, build_totals_query
+from querylens.discovery.kql import (
+    build_preflight_check_query,
+    build_shapes_query,
+    build_totals_query,
+)
 from querylens.discovery.models import (
     DiscoveryOptions,
     DiscoveryValidationError,
@@ -129,6 +133,12 @@ def discover(
 
     # Offline KQL inspection
     if options.print_kql:
+        if options.check_only:
+            check_kql = build_preflight_check_query(account_filter=options.account_filter)
+            click.echo("// === Preflight Diagnostic Check Query ===")
+            click.echo(check_kql)
+            sys.exit(0)
+
         shapes_kql = build_shapes_query(top_n=options.top_n, account_filter=options.account_filter)
         totals_kql = build_totals_query(account_filter=options.account_filter)
 

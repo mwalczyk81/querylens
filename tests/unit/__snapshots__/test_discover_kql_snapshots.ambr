@@ -1,4 +1,69 @@
 # serializer version: 1
+# name: test_discover_kql_check_snapshots
+  '''
+  // === Preflight Diagnostic Check Query ===
+  let base = AzureDiagnostics
+      | where ResourceProvider =~ "MICROSOFT.DOCUMENTDB";
+  let counts = base
+  | summarize
+      dataplane_count = countif(Category == "DataPlaneRequests"),
+      queryruntime_count = countif(Category == "QueryRuntimeStatistics"),
+      earliest_time = min(TimeGenerated),
+      latest_time = max(TimeGenerated),
+      has_shapesignature = countif(
+          Category == "QueryRuntimeStatistics" and isnotempty(coalesce(tostring(column_ifexists("shapesignature_s", "")), tostring(column_ifexists("ShapeSignature_s", "")), tostring(column_ifexists("shapeSignature_s", "")), ""))
+      ),
+      has_querytext = countif(
+          Category == "QueryRuntimeStatistics" and isnotempty(coalesce(tostring(column_ifexists("querytext_s", "")), tostring(column_ifexists("QueryText_s", "")), tostring(column_ifexists("queryText_s", "")), ""))
+      ),
+      has_aad_guid = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))),
+      has_aad_str = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_s", "")), tostring(column_ifexists("AadPrincipalId_s", "")), ""))),
+      has_client_ip = countif(isnotempty(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), ""))),
+      has_useragent = countif(isnotempty(coalesce(tostring(column_ifexists("userAgent_s", "")), tostring(column_ifexists("useragent_s", "")), tostring(column_ifexists("UserAgent_s", "")), "")));
+  let auth = toscalar(
+      base
+      | where isnotempty(coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), ""))
+      | summarize count() by auth_type = coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), "")
+      | summarize make_bag(bag_pack(auth_type, count_))
+  );
+  counts
+  | extend auth_breakdown = auth
+  
+  '''
+# ---
+# name: test_discover_kql_check_with_account_snapshots
+  '''
+  // === Preflight Diagnostic Check Query ===
+  let base = AzureDiagnostics
+      | where ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
+      | where _ResourceId endswith "/databaseaccounts/cosmos-prod-eastus";
+  let counts = base
+  | summarize
+      dataplane_count = countif(Category == "DataPlaneRequests"),
+      queryruntime_count = countif(Category == "QueryRuntimeStatistics"),
+      earliest_time = min(TimeGenerated),
+      latest_time = max(TimeGenerated),
+      has_shapesignature = countif(
+          Category == "QueryRuntimeStatistics" and isnotempty(coalesce(tostring(column_ifexists("shapesignature_s", "")), tostring(column_ifexists("ShapeSignature_s", "")), tostring(column_ifexists("shapeSignature_s", "")), ""))
+      ),
+      has_querytext = countif(
+          Category == "QueryRuntimeStatistics" and isnotempty(coalesce(tostring(column_ifexists("querytext_s", "")), tostring(column_ifexists("QueryText_s", "")), tostring(column_ifexists("queryText_s", "")), ""))
+      ),
+      has_aad_guid = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))),
+      has_aad_str = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_s", "")), tostring(column_ifexists("AadPrincipalId_s", "")), ""))),
+      has_client_ip = countif(isnotempty(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), ""))),
+      has_useragent = countif(isnotempty(coalesce(tostring(column_ifexists("userAgent_s", "")), tostring(column_ifexists("useragent_s", "")), tostring(column_ifexists("UserAgent_s", "")), "")));
+  let auth = toscalar(
+      base
+      | where isnotempty(coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), ""))
+      | summarize count() by auth_type = coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), "")
+      | summarize make_bag(bag_pack(auth_type, count_))
+  );
+  counts
+  | extend auth_breakdown = auth
+  
+  '''
+# ---
 # name: test_discover_kql_default_snapshots
   '''
   // Run each query separately in the Logs editor.

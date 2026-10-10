@@ -47,6 +47,65 @@ def test_cli_print_kql_credential_isolation() -> None:
         assert "Query 1: Top Query Shapes Query" in result.output
 
 
+def test_cli_print_kql_check_success() -> None:
+    """Verify --print-kql combined with --check prints preflight check query and exits 0."""
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "discover",
+            "--workspace-id",
+            "12345678-1234-1234-1234-123456789abc",
+            "--check",
+            "--print-kql",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "Preflight Diagnostic Check Query" in result.output
+    assert 'ResourceProvider =~ "MICROSOFT.DOCUMENTDB"' in result.output
+    assert "Query 1: Top Query Shapes Query" not in result.output
+
+
+def test_cli_print_kql_check_credential_isolation() -> None:
+    """Verify --print-kql --check never instantiates credentials or makes network calls."""
+    runner = CliRunner()
+    with patch(
+        "azure.identity.DefaultAzureCredential",
+        side_effect=AssertionError("DefaultAzureCredential must not be instantiated"),
+    ):
+        result = runner.invoke(
+            cli,
+            [
+                "discover",
+                "--workspace-id",
+                "12345678-1234-1234-1234-123456789abc",
+                "--check",
+                "--print-kql",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Preflight Diagnostic Check Query" in result.output
+
+
+def test_cli_print_kql_check_with_account_filter() -> None:
+    """Verify --print-kql --check includes account filter in query."""
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "discover",
+            "--workspace-id",
+            "12345678-1234-1234-1234-123456789abc",
+            "--check",
+            "--print-kql",
+            "--account",
+            "my-prod-cosmos",
+        ],
+    )
+    assert result.exit_code == 0
+    assert 'endswith "/databaseaccounts/my-prod-cosmos"' in result.output
+
+
 def test_cli_invalid_workspace_id() -> None:
     """Verify CLI exits 1 on invalid workspace ID."""
     runner = CliRunner()
