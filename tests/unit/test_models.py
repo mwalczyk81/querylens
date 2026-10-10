@@ -1,5 +1,7 @@
 """Unit tests for QueryLens domain models and partition_key validation."""
 
+from typing import Any, cast
+
 import pytest
 from pydantic import ValidationError
 
@@ -93,14 +95,14 @@ class TestPartitionKeyValidation:
         query_def = QueryDefinition(
             id="q1",
             query="SELECT * FROM c",
-            partition_key=valid_pk,  # pyrefly: ignore
+            partition_key=cast(Any, valid_pk),
         )
         assert query_def.partition_key == valid_pk
 
     def test_reject_empty_list(self) -> None:
         """Empty lists [] must be rejected with ValueError."""
         with pytest.raises(ValidationError) as exc_info:
-            QueryDefinition(id="q1", query="SELECT * FROM c", partition_key=[])  # pyrefly: ignore
+            QueryDefinition(id="q1", query="SELECT * FROM c", partition_key=cast(Any, []))
         assert "partition_key list cannot be empty" in str(exc_info.value)
 
     def test_reject_more_than_three_items(self) -> None:
@@ -109,7 +111,7 @@ class TestPartitionKeyValidation:
             QueryDefinition(
                 id="q1",
                 query="SELECT * FROM c",
-                partition_key=["a", "b", "c", "d"],  # pyrefly: ignore
+                partition_key=cast(Any, ["a", "b", "c", "d"]),
             )
         assert "partition_key list cannot exceed 3 elements" in str(exc_info.value)
 
@@ -119,7 +121,7 @@ class TestPartitionKeyValidation:
             QueryDefinition(
                 id="q1",
                 query="SELECT * FROM c",
-                partition_key=[["a"]],  # pyrefly: ignore
+                partition_key=cast(Any, [["a"]]),
             )
         assert "partition_key list items must be primitive scalars" in str(exc_info.value)
 
@@ -129,7 +131,7 @@ class TestPartitionKeyValidation:
             QueryDefinition(
                 id="q1",
                 query="SELECT * FROM c",
-                partition_key=["tenant-1", None],  # pyrefly: ignore
+                partition_key=cast(Any, ["tenant-1", None]),
             )
         assert "partition_key list items cannot be null" in str(exc_info.value)
 
@@ -139,7 +141,7 @@ class TestPartitionKeyValidation:
             QueryDefinition(
                 id="q1",
                 query="SELECT * FROM c",
-                partition_key={"key": "val"},  # pyrefly: ignore
+                partition_key=cast(Any, {"key": "val"}),
             )
         assert "partition_key must be a scalar, list of 1-3 scalars, or null" in str(exc_info.value)
 

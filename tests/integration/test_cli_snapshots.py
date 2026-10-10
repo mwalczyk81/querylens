@@ -5,7 +5,6 @@ from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from click.testing import CliRunner
 from syrupy.assertion import SnapshotAssertion
 
@@ -21,11 +20,11 @@ class TestCliSnapshots:
     def test_cli_table_snapshot(
         self,
         mock_get_adapter: MagicMock,
-        tmp_path: pytest.TempPathFactory,
+        tmp_path: Path,
         snapshot: SnapshotAssertion,
     ) -> None:
         """Capture deterministic snapshot of CLI terminal report."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -81,11 +80,11 @@ queries:
     def test_cli_json_snapshot(
         self,
         mock_get_adapter: MagicMock,
-        tmp_path: pytest.TempPathFactory,
+        tmp_path: Path,
         snapshot: SnapshotAssertion,
     ) -> None:
         """Capture deterministic snapshot of CLI --json schema output."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -130,11 +129,11 @@ queries:
     def test_cli_error_query_snapshot(
         self,
         mock_get_adapter: MagicMock,
-        tmp_path: pytest.TempPathFactory,
+        tmp_path: Path,
         snapshot: SnapshotAssertion,
     ) -> None:
         """Capture deterministic snapshot of CLI table and --json output for query with error."""
-        workload_yaml = tmp_path / "workload_error.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload_error.yaml"
         workload_yaml.write_text(
             """
 version: "1"

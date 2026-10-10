@@ -1,8 +1,8 @@
 """Unit tests verifying --fail-on <severity> exit code 4 gating (T020)."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from click.testing import CliRunner
 
 from querylens.cli import cli
@@ -14,10 +14,10 @@ class TestCliFailOnGating:
 
     @patch("querylens.cli.get_adapter")
     def test_fail_on_critical_triggers_exit_4_on_critical(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Exit code 4 when a CRITICAL finding is detected under --fail-on critical."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -61,10 +61,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_fail_on_critical_ignores_high_severity(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Exit code 0 when only HIGH findings exist and --fail-on is critical."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -108,10 +108,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_fail_on_high_triggers_on_high_and_critical(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Exit code 4 when HIGH finding is detected under --fail-on high."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -155,10 +155,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_fail_on_medium_triggers_on_fanout(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Exit code 4 when MEDIUM finding (fan-out) is detected under --fail-on medium."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -201,11 +201,9 @@ queries:
         assert result.exit_code == 4
 
     @patch("querylens.cli.get_adapter")
-    def test_fail_on_off_by_default(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
-    ) -> None:
+    def test_fail_on_off_by_default(self, mock_get_adapter: MagicMock, tmp_path: Path) -> None:
         """Exit code 0 when --fail-on is omitted even if CRITICAL findings exist."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"

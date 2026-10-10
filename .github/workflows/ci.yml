@@ -36,7 +36,7 @@ jobs:
       - name: Ruff Format Check
         run: uv run ruff format --check .
 
-      - name: Pyrefly Strict Type Check
+      - name: Pyrefly Type Check
         run: uv run pyrefly check
 
       - name: Unit Tests & Coverage Gate (85%)

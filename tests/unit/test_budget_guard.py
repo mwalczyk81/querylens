@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Iterator
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -195,10 +196,10 @@ class TestBudgetGuard:
 
     @patch("querylens.cli.get_adapter")
     def test_cli_exit_code_2_on_budget_exceeded(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Exit code 2 when budget is exceeded in terminal console mode."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -240,10 +241,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_cli_exit_code_2_with_json_output(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Exit code 2 when budget is exceeded in --json output mode."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"

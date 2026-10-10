@@ -7,10 +7,10 @@ Ensures deterministic exit codes:
 - 5: Authentication / Authorization failure
 """
 
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-import pytest
 from azure.core.exceptions import ClientAuthenticationError, ServiceRequestError
 from azure.cosmos.exceptions import CosmosHttpResponseError, CosmosResourceNotFoundError
 from click.testing import CliRunner
@@ -30,18 +30,18 @@ class TestCliExitCodesContract:
         assert result.exit_code == 1
         assert "Error" in result.output or "error" in result.output
 
-    def test_exit_code_1_invalid_yaml(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_exit_code_1_invalid_yaml(self, tmp_path: Path) -> None:
         """Exit code 1 on malformed YAML syntax."""
-        bad_yaml = tmp_path / "bad.yaml"  # pyrefly: ignore
+        bad_yaml = tmp_path / "bad.yaml"
         bad_yaml.write_text("invalid: yaml: [unclosed", encoding="utf-8")
 
         runner = CliRunner()
         result = runner.invoke(cli, ["run", str(bad_yaml)])
         assert result.exit_code == 1
 
-    def test_exit_code_1_invalid_partition_key(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_exit_code_1_invalid_partition_key(self, tmp_path: Path) -> None:
         """Exit code 1 on partition_key validation error (e.g. empty list)."""
-        workload_yaml = tmp_path / "bad_pk.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "bad_pk.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -63,11 +63,9 @@ queries:
         assert result.exit_code == 1
         assert "partition_key list cannot be empty" in result.output
 
-    def test_exit_code_1_missing_database_or_container(
-        self, tmp_path: pytest.TempPathFactory
-    ) -> None:
+    def test_exit_code_1_missing_database_or_container(self, tmp_path: Path) -> None:
         """Exit code 1 when target database or container is missing from file, options, and env."""
-        workload_yaml = tmp_path / "no_target.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "no_target.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -101,11 +99,9 @@ queries:
         assert "missing argument" in result.output.lower() or "error" in result.output.lower()
 
     @patch("querylens.cli.get_adapter")
-    def test_exit_code_0_success(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
-    ) -> None:
+    def test_exit_code_0_success(self, mock_get_adapter: MagicMock, tmp_path: Path) -> None:
         """Exit code 0 when all queries execute successfully."""
-        workload_yaml = tmp_path / "valid.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "valid.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -141,10 +137,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_exit_code_3_connection_error(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Exit code 3 on network unreachable or host resolution failure."""
-        workload_yaml = tmp_path / "valid.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "valid.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -173,10 +169,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_exit_code_3_container_not_found(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Exit code 3 on CosmosResourceNotFoundError (database/container not found)."""
-        workload_yaml = tmp_path / "valid.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "valid.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -204,10 +200,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_exit_code_5_auth_credential_error(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Exit code 5 on ClientAuthenticationError."""
-        workload_yaml = tmp_path / "valid.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "valid.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -234,10 +230,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_exit_code_5_auth_http_403_forbidden(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Exit code 5 on HTTP 403 Forbidden (missing Cosmos DB Data Reader role)."""
-        workload_yaml = tmp_path / "valid.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "valid.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -266,12 +262,12 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_exit_code_0_with_json_and_options(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Verify --json produces valid JSON stdout and option flags apply cleanly."""
         import json
 
-        workload_yaml = tmp_path / "valid.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "valid.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -331,9 +327,9 @@ queries:
         assert parsed["total_ru_consumed"] == 10.0
         assert len(parsed["results"]) == 1
 
-    def test_exit_code_1_yaml_not_a_mapping(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_exit_code_1_yaml_not_a_mapping(self, tmp_path: Path) -> None:
         """Exit code 1 when YAML root is a list or scalar instead of a dict."""
-        workload_yaml = tmp_path / "list_root.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "list_root.yaml"
         workload_yaml.write_text("- item1\n- item2\n", encoding="utf-8")
 
         runner = CliRunner()
@@ -346,10 +342,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_exit_code_3_mid_run_connection_error_renders_partial(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Render partial results table before exiting with code 3 on mid-run connection error."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -391,10 +387,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_exit_code_3_mid_run_connection_error_renders_partial_json(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Render partial JSON summary before exiting with code 3 on mid-run server error."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -437,11 +433,9 @@ queries:
         assert "Cosmos server error (HTTP 503)" in result.output
 
     @patch("querylens.cli.get_adapter")
-    def test_exit_code_3_rate_limit_429(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
-    ) -> None:
+    def test_exit_code_3_rate_limit_429(self, mock_get_adapter: MagicMock, tmp_path: Path) -> None:
         """Exit code 3 with rate limit message when Cosmos DB returns HTTP 429."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -470,10 +464,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_exit_code_1_on_query_execution_error(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Exit code 1 after rendering report when a query ends with error_message."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -512,10 +506,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_exit_code_precedence_budget_exceeded_over_fail_on(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Budget exceeded (exit 2) takes precedence over --fail-on gate breach (exit 4)."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -558,10 +552,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_exit_code_precedence_budget_exceeded_over_query_error(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Budget exceeded (exit 2) takes precedence over query execution error (exit 1)."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"
@@ -612,10 +606,10 @@ queries:
 
     @patch("querylens.cli.get_adapter")
     def test_exit_code_precedence_fail_on_over_query_error(
-        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+        self, mock_get_adapter: MagicMock, tmp_path: Path
     ) -> None:
         """Fail-on gate breach (exit 4) takes precedence over query execution error (exit 1)."""
-        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml = tmp_path / "workload.yaml"
         workload_yaml.write_text(
             """
 version: "1"

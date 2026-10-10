@@ -1,5 +1,7 @@
 """Unit tests for QueryLens Settings configuration."""
 
+from typing import Any, cast
+
 import pytest
 from pydantic import ValidationError
 
@@ -41,18 +43,18 @@ class TestSettings:
     )
     def test_fail_on_normalization(self, input_val: str | None, expected: str | None) -> None:
         """Normalize fail_on casing to lowercase."""
-        settings = Settings(fail_on=input_val)  # pyrefly: ignore
+        settings = Settings(fail_on=cast(Any, input_val))
         assert settings.fail_on == expected
 
     def test_invalid_fail_on_rejected(self) -> None:
         """Reject invalid fail_on severity values."""
         with pytest.raises(ValidationError) as exc_info:
-            Settings(fail_on="invalid_severity")  # pyrefly: ignore
+            Settings(fail_on=cast(Any, "invalid_severity"))
         assert "Invalid --fail-on value" in str(exc_info.value)
 
     def test_cosmos_key_secret_str(self) -> None:
         """Verify cosmos_key is stored as SecretStr and not exposed in repr."""
-        settings = Settings(cosmos_key="secret-master-key-xyz")  # pyrefly: ignore
+        settings = Settings(cosmos_key=cast(Any, "secret-master-key-xyz"))
         assert settings.cosmos_key is not None
         assert settings.cosmos_key.get_secret_value() == "secret-master-key-xyz"
         assert "secret-master-key-xyz" not in repr(settings.cosmos_key)
