@@ -38,12 +38,7 @@ jobs:
 
       # Note: The ruff version in .pre-commit-config.yaml (rev) and pyproject.toml must stay in sync.
       - name: Pre-commit Hooks
-        env:
-          SKIP: pyrefly
         run: uv run pre-commit run --all-files --show-diff-on-failure
-
-      - name: Pyrefly Type Check
-        run: uv run pyrefly check
 
       - name: Unit Tests & Coverage Gate (85%)
         run: uv run pytest --cov=querylens --cov-fail-under=85 -m "not integration"
