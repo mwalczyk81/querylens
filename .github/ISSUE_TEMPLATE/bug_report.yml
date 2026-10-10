@@ -1,0 +1,53 @@
+name: Bug Report
+description: File a bug report to help improve QueryLens
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Please check existing issues before submitting.
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Run workload YAML '...'
+        2. Execute 'querylens run workload.yaml --endpoint ...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment & Versions
+      description: Python version, OS, QueryLens version, Cosmos DB SDK / Emulator version.
+      value: |
+        - OS: [e.g. Windows 11, Ubuntu 24.04, macOS 15]
+        - Python version: [e.g. 3.12.2]
+        - QueryLens version: [e.g. 0.1.0]
+        - Cosmos DB: [e.g. Local Emulator 2.14.28, Azure Cosmos DB]
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Log Output or Screenshots
+      description: Please copy and paste any relevant terminal output or tracebacks.
+      render: shell
