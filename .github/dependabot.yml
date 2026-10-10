@@ -18,6 +18,8 @@ updates:
     commit-message:
       prefix: "chore(ci)"
     groups:
+      codeql-action:
+        patterns: ["github/codeql-action/*"]
       actions-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
@@ -31,3 +33,4 @@ updates:
     groups:
       pre-commit-hooks:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
