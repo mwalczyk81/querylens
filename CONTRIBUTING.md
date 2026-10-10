@@ -54,6 +54,24 @@ Type checking is performed using [Pyrefly](https://github.com/facebook/pyrefly) 
 uv run pyrefly check
 ```
 
+### Regenerating README Assets
+
+The terminal SVG demo in the README (`docs/assets/querylens-demo.svg`) is generated from deterministic sample run metrics (`docs/assets/sample-run.json`).
+
+To regenerate the SVG from existing sample data:
+
+```bash
+uv run python scripts/gen_readme_assets.py
+```
+
+To re-run against the local emulator to refresh `sample-run.json` and the SVG:
+
+```bash
+uv run python scripts/gen_readme_assets.py --refresh
+```
+
+A drift test in `tests/unit/test_readme_assets.py` runs in CI to verify byte-for-byte equality between the committed SVG and newly generated output.
+
 ---
 
 ## Local Cosmos DB Emulator Quickstart
