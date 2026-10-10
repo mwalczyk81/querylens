@@ -40,21 +40,35 @@ For full architectural diagrams, extension seams, and deterministic exit-code de
 
 ## 🚀 Quickstart
 
-Get started locally with QueryLens in seconds using Docker Compose and the local Cosmos DB emulator:
+Get started locally with QueryLens in a few minutes using Docker Compose and the local Cosmos DB emulator:
 
-### 1. Start Local Cosmos DB Emulator
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) (with Docker Compose)
+- [uv](https://docs.astral.sh/uv/) (recommended) or [Python 3.12+](https://www.python.org/downloads/)
+- [Git](https://git-scm.com/)
+
+### 1. Clone & Synchronize Dependencies
+
+```bash
+git clone https://github.com/mwalczyk81/querylens.git
+cd querylens
+uv sync
+```
+
+### 2. Start Local Cosmos DB Emulator
 
 ```bash
 docker compose up -d
 ```
 
-### 2. Seed Emulator with Deterministic Test Data
+### 3. Seed Emulator with Deterministic Test Data
 
 ```bash
 uv run python scripts/seed_emulator.py
 ```
 
-### 3. Run QueryLens Against Example Workload
+### 4. Run QueryLens Against Example Workload
 
 Configure the emulator endpoint and master key, then profile the workload:
 
@@ -71,6 +85,8 @@ uv run querylens run examples/workload.yaml
 ```
 
 > [!NOTE]
+> **Emulator Key & TLS Verification**: The key shown above is Microsoft's public well-known Cosmos DB emulator key, not a secret. TLS verification is disabled for the local emulator only (the CLI prints a one-line notice: `TLS verification disabled for local emulator`). Remote Azure endpoints enforce strict TLS validation and authenticate via passwordless Entra ID (`DefaultAzureCredential`).
+>
 > **Page Size and RU Accounting**: Reported Request Units include Azure Cosmos DB's minimum per-request charge (approximately 2.9 RU per HTTP gateway request page). Consequently, cumulative RU consumption increases as `--max-item-count` shrinks because retrieving the same dataset requires more round-trip pages. Always compare workload profiling runs using identical page sizes (`--max-item-count`).
 >
 > **Partial Results Semantics**: When cumulative Request Units exceed `--ru-budget`, execution terminates immediately:
