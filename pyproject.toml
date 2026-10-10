@@ -38,7 +38,7 @@ Issues = "https://github.com/mwalczyk81/querylens/issues"
 [dependency-groups]
 dev = [
     "hypothesis>=6.100.0",
-    "pip-audit>=2.7.0",
+    "pip-audit>=2.10.1",
     "pre-commit>=3.7.0",
     "pyrefly>=1.3.0",
     "pytest>=8.1.0",
