@@ -20,6 +20,9 @@
 
 ## 2. Release Qualification Checklist
 
+> [!TIP]
+> **Claude Code Live-Gate Prompt**: To execute this qualification procedure interactively with Claude Code after signing in to Azure, use the instructions in [Live Workspace Qualification Gate](live-gate.md).
+
 Before cutting any release tag (e.g. `v0.2.0`), perform the following steps against a real Azure Log Analytics workspace connected to an active Cosmos DB account:
 
 - [ ] **Step 1: KQL Syntax & Column Verification in Azure Portal (Both Queries)**
