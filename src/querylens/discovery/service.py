@@ -1,5 +1,6 @@
 """Discovery execution service interacting with Azure Monitor Logs."""
 
+import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -7,7 +8,11 @@ from uuid import UUID
 from azure.identity import DefaultAzureCredential
 from azure.monitor.query import LogsQueryClient, LogsQueryResult
 
-from querylens.discovery.kql import build_shapes_query, build_totals_query
+from querylens.discovery.kql import (
+    build_preflight_check_query,
+    build_shapes_query,
+    build_totals_query,
+)
 from querylens.discovery.models import (
     DiscoveredQueryShape,
     DiscoveryOptions,
@@ -181,5 +186,120 @@ def run_preflight_check(
     options: DiscoveryOptions,
     client: LogsQueryClient | None = None,
 ) -> PreflightCheckReport:
-    """Execute preflight diagnostic telemetry check (US2)."""
-    raise NotImplementedError
+    """Execute preflight diagnostic telemetry check against target Log Analytics workspace.
+
+    Verifies workspace connectivity, detected diagnostic categories, row counts,
+    earliest and latest record timestamps, key field coverage percentages, and auth
+    token distributions. Emits 100% quantitative metrics with zero query text.
+
+    Args:
+        options: Validated DiscoveryOptions configuration.
+        client: Optional injected LogsQueryClient instance for testing.
+
+    Returns:
+        PreflightCheckReport containing quantitative telemetry health summary.
+    """
+    logs_client = client or LogsQueryClient(credential=DefaultAzureCredential())
+
+    window_end = datetime.now(UTC)
+    window_start = window_end - options.time_window
+
+    check_kql = build_preflight_check_query(account_filter=options.account_filter)
+
+    res = logs_client.query_workspace(
+        workspace_id=str(options.workspace_id),
+        query=check_kql,
+        timespan=options.time_window,
+        server_timeout=options.server_timeout_seconds,
+    )
+    tables = (
+        res.tables
+        if isinstance(res, LogsQueryResult)
+        else (res.partial_data if hasattr(res, "partial_data") else [])
+    )
+
+    dataplane_count = 0
+    queryruntime_count = 0
+    earliest_record: datetime | None = None
+    latest_record: datetime | None = None
+    has_shapesignature = 0
+    has_querytext = 0
+    has_aad_guid = 0
+    has_aad_str = 0
+    has_client_ip = 0
+    has_useragent = 0
+    raw_auth: Any = None
+
+    if tables and len(tables[0].rows) > 0:
+        row = tables[0].rows[0]
+        dataplane_count = int(row["dataplane_count"] or 0)
+        queryruntime_count = int(row["queryruntime_count"] or 0)
+        earliest_record = _parse_timestamp(row["earliest_time"])
+        latest_record = _parse_timestamp(row["latest_time"])
+        has_shapesignature = int(row["has_shapesignature"] or 0)
+        has_querytext = int(row["has_querytext"] or 0)
+        has_aad_guid = int(row["has_aad_guid"] or 0)
+        has_aad_str = int(row["has_aad_str"] or 0)
+        has_client_ip = int(row["has_client_ip"] or 0)
+        has_useragent = int(row["has_useragent"] or 0)
+        raw_auth = row["auth_breakdown"]
+
+    categories_detected: list[str] = []
+    if dataplane_count > 0:
+        categories_detected.append("DataPlaneRequests")
+    if queryruntime_count > 0:
+        categories_detected.append("QueryRuntimeStatistics")
+
+    row_counts: dict[str, int] = {
+        "DataPlaneRequests": dataplane_count,
+        "QueryRuntimeStatistics": queryruntime_count,
+    }
+
+    field_coverage: dict[str, float] = {
+        "shapesignature_s": (
+            min(1.0, has_shapesignature / queryruntime_count) if queryruntime_count > 0 else 0.0
+        ),
+        "querytext_s": (
+            min(1.0, has_querytext / queryruntime_count) if queryruntime_count > 0 else 0.0
+        ),
+        "aadPrincipalId_g": (
+            min(1.0, has_aad_guid / dataplane_count) if dataplane_count > 0 else 0.0
+        ),
+        "aadPrincipalId_s": (
+            min(1.0, has_aad_str / dataplane_count) if dataplane_count > 0 else 0.0
+        ),
+        "clientIpAddress_s": (
+            min(1.0, has_client_ip / dataplane_count) if dataplane_count > 0 else 0.0
+        ),
+        "useragent_s": (min(1.0, has_useragent / dataplane_count) if dataplane_count > 0 else 0.0),
+    }
+
+    auth_breakdown: dict[str, int] = {}
+    if isinstance(raw_auth, str):
+        try:
+            parsed = json.loads(raw_auth)
+            if isinstance(parsed, dict):
+                auth_breakdown = {str(k): int(v or 0) for k, v in parsed.items()}
+        except (ValueError, TypeError):
+            pass
+    elif isinstance(raw_auth, dict):
+        auth_breakdown = {str(k): int(v or 0) for k, v in raw_auth.items()}
+
+    retention_warning = False
+    if earliest_record is not None:
+        threshold = window_start + max(timedelta(hours=1), 0.05 * options.time_window)
+        if earliest_record > threshold:
+            retention_warning = True
+
+    return PreflightCheckReport(
+        categories_detected=categories_detected,
+        row_counts=row_counts,
+        window_start=window_start,
+        window_end=window_end,
+        earliest_record=earliest_record,
+        latest_record=latest_record,
+        field_coverage=field_coverage,
+        auth_breakdown=auth_breakdown,
+        retention_warning=retention_warning,
+        masked_workspace_id=_mask_workspace_id(options.workspace_id),
+    )

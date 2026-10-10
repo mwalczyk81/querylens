@@ -6,9 +6,13 @@ from pathlib import Path
 
 from querylens.discovery.models import (
     DiscoveredQueryShape,
+    PreflightCheckReport,
     WorkloadDiscoverySummary,
 )
-from querylens.report.discover_json import serialize_discovery_json
+from querylens.report.discover_json import (
+    serialize_check_json,
+    serialize_discovery_json,
+)
 
 
 def test_discover_json_matches_contract_schema() -> None:
@@ -65,3 +69,50 @@ def test_discover_json_matches_contract_schema() -> None:
 
     # Verify default JSON omits sample_query_text
     assert "sample_query_text" not in item
+
+
+def test_check_json_matches_contract_schema() -> None:
+    """Verify serialized preflight check output adheres to check-output-schema.json (T022)."""
+    schema_path = (
+        Path(__file__).parents[2]
+        / "specs"
+        / "002-query-cost-discovery"
+        / "contracts"
+        / "check-output-schema.json"
+    )
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+
+    now = datetime.now(UTC)
+    report = PreflightCheckReport(
+        categories_detected=["DataPlaneRequests", "QueryRuntimeStatistics"],
+        row_counts={"DataPlaneRequests": 1500, "QueryRuntimeStatistics": 400},
+        window_start=now - timedelta(hours=24),
+        window_end=now,
+        earliest_record=now - timedelta(hours=23),
+        latest_record=now - timedelta(minutes=5),
+        field_coverage={
+            "shapesignature_s": 0.98,
+            "querytext_s": 1.0,
+            "aadPrincipalId_g": 0.85,
+            "aadPrincipalId_s": 0.0,
+            "clientIpAddress_s": 1.0,
+            "useragent_s": 0.95,
+        },
+        auth_breakdown={"AAD": 1200, "PrimaryMasterKey": 300},
+        retention_warning=False,
+        masked_workspace_id="...9abc",
+    )
+
+    json_str = serialize_check_json(report)
+    data = json.loads(json_str)
+
+    # Validate required top-level fields
+    for field in schema["required"]:
+        assert field in data, f"Missing required preflight check field: {field}"
+
+    # Assert no extraneous fields (additionalProperties: false)
+    assert set(data.keys()) == set(schema["required"])
+    assert data["masked_workspace_id"] == "...9abc"
+    assert data["retention_warning"] is False
+    assert data["row_counts"]["DataPlaneRequests"] == 1500
+    assert data["field_coverage"]["shapesignature_s"] == 0.98

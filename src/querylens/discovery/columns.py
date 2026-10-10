@@ -33,6 +33,9 @@ CLIENT_IP_EXPR: Final[str] = safe_str_column(["clientIpAddress_s", "ClientIpAddr
 AAD_PRINCIPAL_EXPR: Final[str] = safe_str_column(
     ["aadPrincipalId_g", "AadPrincipalId_g"], default=""
 )
+AAD_PRINCIPAL_STR_EXPR: Final[str] = safe_str_column(
+    ["aadPrincipalId_s", "AadPrincipalId_s"], default=""
+)
 ACTIVITY_ID_EXPR: Final[str] = safe_str_column(["activityId_g", "ActivityId_g"], default="")
 QUERY_TEXT_EXPR: Final[str] = safe_str_column(
     ["querytext_s", "QueryText_s", "queryText_s"], default=""

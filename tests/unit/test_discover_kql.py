@@ -1,6 +1,10 @@
 """Unit tests for discovery KQL query construction."""
 
-from querylens.discovery.kql import build_shapes_query, build_totals_query
+from querylens.discovery.kql import (
+    build_preflight_check_query,
+    build_shapes_query,
+    build_totals_query,
+)
 
 
 def test_build_shapes_query_default() -> None:
@@ -42,3 +46,26 @@ def test_build_totals_query_with_account_filter() -> None:
     query = build_totals_query(account_filter="prod-account-01")
     expected_clause = '| where _ResourceId endswith "/databaseaccounts/prod-account-01"'
     assert query.count(expected_clause) == 2
+
+
+def test_build_preflight_check_query_default() -> None:
+    """Verify build_preflight_check_query creates valid preflight check KQL."""
+    query = build_preflight_check_query()
+    assert 'ResourceProvider =~ "MICROSOFT.DOCUMENTDB"' in query
+    assert "dataplane_count = countif(Category == " in query
+    assert "queryruntime_count = countif(Category == " in query
+    assert "earliest_time = min(TimeGenerated)" in query
+    assert "latest_time = max(TimeGenerated)" in query
+    assert "has_shapesignature = countif(" in query
+    assert "has_querytext = countif(" in query
+    assert "has_aad_guid = countif(" in query
+    assert "has_client_ip = countif(" in query
+    assert "has_useragent = countif(" in query
+    assert "make_bag(bag_pack(auth_type, count_))" in query
+    assert "_ResourceId endswith" not in query
+
+
+def test_build_preflight_check_query_with_account() -> None:
+    """Verify build_preflight_check_query injects account filter safely."""
+    query = build_preflight_check_query(account_filter="my-cosmos-account")
+    assert '| where _ResourceId endswith "/databaseaccounts/my-cosmos-account"' in query

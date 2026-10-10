@@ -2,7 +2,9 @@
 
 from querylens.discovery.columns import (
     AAD_PRINCIPAL_EXPR,
+    AAD_PRINCIPAL_STR_EXPR,
     ACTIVITY_ID_EXPR,
+    AUTH_TOKEN_TYPE_EXPR,
     CLIENT_IP_EXPR,
     COLLECTION_NAME_EXPR,
     DATABASE_NAME_EXPR,
@@ -11,6 +13,7 @@ from querylens.discovery.columns import (
     REQUEST_CHARGE_EXPR,
     SHAPE_SIGNATURE_EXPR,
     STATUS_CODE_EXPR,
+    USER_AGENT_EXPR,
 )
 
 
@@ -148,3 +151,49 @@ queries
 | extend
     window_total_ru = window_total,
     min_time_generated = min_time"""
+
+
+def build_preflight_check_query(account_filter: str | None = None) -> str:
+    """Build preflight check KQL query (US2).
+
+    Queries AzureDiagnostics category counts, min/max TimeGenerated, non-empty
+    record counts for key columns, and dynamic authTokenType_s breakdown.
+
+    Args:
+        account_filter: Optional Cosmos DB account name.
+
+    Returns:
+        KQL query string.
+    """
+    acct_clause = _build_account_clause(account_filter)
+    acct_filter_line = f"\n{acct_clause.rstrip()}" if acct_clause else ""
+
+    return f"""let base = AzureDiagnostics
+    | where ResourceProvider =~ "MICROSOFT.DOCUMENTDB"{acct_filter_line};
+
+let counts = base
+| summarize
+    dataplane_count = countif(Category == "DataPlaneRequests"),
+    queryruntime_count = countif(Category == "QueryRuntimeStatistics"),
+    earliest_time = min(TimeGenerated),
+    latest_time = max(TimeGenerated),
+    has_shapesignature = countif(
+        Category == "QueryRuntimeStatistics" and isnotempty({SHAPE_SIGNATURE_EXPR})
+    ),
+    has_querytext = countif(
+        Category == "QueryRuntimeStatistics" and isnotempty({QUERY_TEXT_EXPR})
+    ),
+    has_aad_guid = countif(isnotempty({AAD_PRINCIPAL_EXPR})),
+    has_aad_str = countif(isnotempty({AAD_PRINCIPAL_STR_EXPR})),
+    has_client_ip = countif(isnotempty({CLIENT_IP_EXPR})),
+    has_useragent = countif(isnotempty({USER_AGENT_EXPR}));
+
+let auth = toscalar(
+    base
+    | where isnotempty({AUTH_TOKEN_TYPE_EXPR})
+    | summarize count() by auth_type = {AUTH_TOKEN_TYPE_EXPR}
+    | summarize make_bag(bag_pack(auth_type, count_))
+);
+
+counts
+| extend auth_breakdown = auth"""

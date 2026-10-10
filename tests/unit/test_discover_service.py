@@ -10,9 +10,10 @@ from querylens.discovery.models import (
     DiscoveryOptions,
     TelemetryMisconfigurationError,
 )
-from querylens.discovery.service import run_discovery
+from querylens.discovery.service import run_discovery, run_preflight_check
 from tests.fixtures.synthetic_logs import (
     make_logs_query_result,
+    make_sample_preflight_table,
     make_sample_shapes_table,
     make_sample_totals_table,
 )
@@ -123,3 +124,104 @@ def test_run_discovery_retention_warning() -> None:
     )
     summary = run_discovery(options=options, client=mock_client)
     assert summary.retention_warning is True
+
+
+def test_run_preflight_check_success() -> None:
+    """Verify run_preflight_check returns structured PreflightCheckReport."""
+    mock_client = MagicMock()
+    preflight_table = make_sample_preflight_table(
+        dataplane_count=1500,
+        queryruntime_count=400,
+        earliest_time="2026-10-09T18:00:00Z",
+        latest_time="2026-10-10T18:00:00Z",
+        has_shapesignature=390,
+        has_querytext=400,
+        has_aad_guid=1200,
+        has_aad_str=0,
+        has_client_ip=1500,
+        has_useragent=1450,
+        auth_breakdown={"AAD": 1200, "PrimaryMasterKey": 300},
+    )
+    mock_client.query_workspace.return_value = make_logs_query_result([preflight_table])
+
+    options = DiscoveryOptions(
+        workspace_id=UUID("12345678-1234-1234-1234-123456789abc"),
+        time_window=timedelta(hours=24),
+    )
+    report = run_preflight_check(options=options, client=mock_client)
+
+    assert report.masked_workspace_id == "...9abc"
+    assert "DataPlaneRequests" in report.categories_detected
+    assert "QueryRuntimeStatistics" in report.categories_detected
+    assert report.row_counts["DataPlaneRequests"] == 1500
+    assert report.row_counts["QueryRuntimeStatistics"] == 400
+    assert report.field_coverage["shapesignature_s"] == 390 / 400
+    assert report.field_coverage["querytext_s"] == 1.0
+    assert report.field_coverage["aadPrincipalId_g"] == 1200 / 1500
+    assert report.field_coverage["clientIpAddress_s"] == 1.0
+    assert report.auth_breakdown == {"AAD": 1200, "PrimaryMasterKey": 300}
+    assert report.retention_warning is False
+
+
+def test_run_preflight_check_missing_category() -> None:
+    """Verify preflight check detects missing QueryRuntimeStatistics category."""
+    mock_client = MagicMock()
+    preflight_table = make_sample_preflight_table(
+        dataplane_count=1500,
+        queryruntime_count=0,
+        has_shapesignature=0,
+        has_querytext=0,
+    )
+    mock_client.query_workspace.return_value = make_logs_query_result([preflight_table])
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    report = run_preflight_check(options=options, client=mock_client)
+
+    assert "DataPlaneRequests" in report.categories_detected
+    assert "QueryRuntimeStatistics" not in report.categories_detected
+    assert report.row_counts["QueryRuntimeStatistics"] == 0
+    assert report.field_coverage["querytext_s"] == 0.0
+
+
+def test_run_preflight_check_retention_warning() -> None:
+    """Verify preflight check flags retention warning when logs are truncated."""
+    mock_client = MagicMock()
+    recent_time = (datetime.now(UTC) - timedelta(hours=2)).isoformat()
+    preflight_table = make_sample_preflight_table(
+        earliest_time=recent_time,
+    )
+    mock_client.query_workspace.return_value = make_logs_query_result([preflight_table])
+
+    options = DiscoveryOptions(
+        workspace_id=UUID("12345678-1234-1234-1234-123456789abc"),
+        time_window=timedelta(hours=24),
+    )
+    report = run_preflight_check(options=options, client=mock_client)
+    assert report.retention_warning is True
+
+
+def test_run_preflight_check_empty_workspace() -> None:
+    """Verify preflight check handles empty workspace cleanly."""
+    mock_client = MagicMock()
+    empty_table = make_sample_preflight_table(
+        dataplane_count=0,
+        queryruntime_count=0,
+        earliest_time=None,
+        latest_time=None,
+        has_shapesignature=0,
+        has_querytext=0,
+        has_aad_guid=0,
+        has_aad_str=0,
+        has_client_ip=0,
+        has_useragent=0,
+        auth_breakdown={},
+    )
+    mock_client.query_workspace.return_value = make_logs_query_result([empty_table])
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    report = run_preflight_check(options=options, client=mock_client)
+
+    assert report.categories_detected == []
+    assert report.earliest_record is None
+    assert report.latest_record is None
+    assert report.retention_warning is False

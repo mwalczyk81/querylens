@@ -8,6 +8,7 @@ from click.testing import CliRunner
 from querylens.cli import cli
 from tests.fixtures.synthetic_logs import (
     make_logs_query_result,
+    make_sample_preflight_table,
     make_sample_shapes_table,
     make_sample_totals_table,
 )
@@ -196,3 +197,57 @@ def test_cli_auth_error_exit_5(mock_get_client: MagicMock) -> None:
         ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc"],
     )
     assert result.exit_code == 5
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_check_console_success(mock_get_client: MagicMock) -> None:
+    """Verify discover --check renders preflight console report and exits 0 (T024)."""
+    mock_client = MagicMock()
+    mock_client.query_workspace.return_value = make_logs_query_result(
+        [make_sample_preflight_table()]
+    )
+    mock_get_client.return_value = mock_client
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "discover",
+            "--workspace-id",
+            "12345678-1234-1234-1234-123456789abc",
+            "--check",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "Log Analytics Diagnostic Preflight Check" in result.output
+    assert "DataPlaneRequests" in result.output
+    assert "QueryRuntimeStatistics" in result.output
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_check_json_success(mock_get_client: MagicMock) -> None:
+    """Verify discover --check --json emits valid JSON and exits 0 (T024)."""
+    mock_client = MagicMock()
+    mock_client.query_workspace.return_value = make_logs_query_result(
+        [make_sample_preflight_table()]
+    )
+    mock_get_client.return_value = mock_client
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "discover",
+            "--workspace-id",
+            "12345678-1234-1234-1234-123456789abc",
+            "--check",
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["masked_workspace_id"] == "...9abc"
+    assert "DataPlaneRequests" in data["categories_detected"]
+    assert "QueryRuntimeStatistics" in data["categories_detected"]
+    assert data["row_counts"]["DataPlaneRequests"] == 1500
+    assert data["field_coverage"]["querytext_s"] == 1.0

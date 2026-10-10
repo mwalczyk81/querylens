@@ -74,16 +74,16 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T022 [P] [US2] Author preflight check JSON contract tests in tests/unit/test_discover_contract.py validating synthetic check output against specs/002-query-cost-discovery/contracts/check-output-schema.json
-- [ ] T023 [P] [US2] Author preflight service unit tests in tests/unit/test_discover_service.py using synthetic logs fixtures to verify category detection, row counting, field coverage percentage calculations, auth token distribution grouping, retention warning detection, and missing `QueryRuntimeStatistics` category warning
-- [ ] T024 [P] [US2] Author preflight CLI tests in tests/unit/test_discover_cli.py verifying querylens discover --workspace-id <uuid> --check console rendering and querylens discover --workspace-id <uuid> --check --json machine-readable output
+- [x] T022 [P] [US2] Author preflight check JSON contract tests in tests/unit/test_discover_contract.py validating synthetic check output against specs/002-query-cost-discovery/contracts/check-output-schema.json
+- [x] T023 [P] [US2] Author preflight service unit tests in tests/unit/test_discover_service.py using synthetic logs fixtures to verify category detection, row counting, field coverage percentage calculations, auth token distribution grouping, retention warning detection, and missing `QueryRuntimeStatistics` category warning
+- [x] T024 [P] [US2] Author preflight CLI tests in tests/unit/test_discover_cli.py verifying querylens discover --workspace-id <uuid> --check console rendering and querylens discover --workspace-id <uuid> --check --json machine-readable output
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] Implement preflight check KQL query builder build_preflight_check_query in src/querylens/discovery/kql.py querying `AzureDiagnostics` category counts, min/max `TimeGenerated`, non-empty counts for columns (`shapesignature_s`, `querytext_s`, `aadPrincipalId_g`, `aadPrincipalId_s`, `clientIpAddress_s`, `useragent_s`), and breakdown of `authTokenType_s`
-- [ ] T026 [US2] Implement run_preflight_check in src/querylens/discovery/service.py accepting injected LogsQueryClient, parsing raw diagnostic results into PreflightCheckReport, masking workspace ID to last 4 characters, computing column coverage ratios, and flagging retention and missing category warnings
-- [ ] T027 [US2] Implement preflight check Rich console renderer in src/querylens/report/discover_console.py formatting category record counts, time boundaries, field coverage percentages, and authentication token breakdown
-- [ ] T028 [US2] Wire `--check` mode into src/querylens/discover_cli.py supporting both Rich console report and `--json` serialization matching specs/002-query-cost-discovery/contracts/check-output-schema.json
+- [x] T025 [US2] Implement preflight check KQL query builder build_preflight_check_query in src/querylens/discovery/kql.py querying `AzureDiagnostics` category counts, min/max `TimeGenerated`, non-empty counts for columns (`shapesignature_s`, `querytext_s`, `aadPrincipalId_g`, `aadPrincipalId_s`, `clientIpAddress_s`, `useragent_s`), and breakdown of `authTokenType_s`
+- [x] T026 [US2] Implement run_preflight_check in src/querylens/discovery/service.py accepting injected LogsQueryClient, parsing raw diagnostic results into PreflightCheckReport, masking workspace ID to last 4 characters, computing column coverage ratios, and flagging retention and missing category warnings
+- [x] T027 [US2] Implement preflight check Rich console renderer in src/querylens/report/discover_console.py formatting category record counts, time boundaries, field coverage percentages, and authentication token breakdown
+- [x] T028 [US2] Wire `--check` mode into src/querylens/discover_cli.py supporting both Rich console report and `--json` serialization matching specs/002-query-cost-discovery/contracts/check-output-schema.json
 - [ ] T029 [US2] Execute manual preflight qualification gate per docs/manual-testing.md: run querylens discover --workspace-id <uuid> --check against a real workspace (counts and percentages only) and fix any preflight KQL errors before starting US3
 
 **Checkpoint**: At this point, User Stories 1 AND 2 are both verified offline and qualified on live Azure before caller attribution work begins.
