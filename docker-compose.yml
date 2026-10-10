@@ -1,0 +1,17 @@
+services:
+  cosmos-emulator:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+    container_name: querylens-cosmos-emulator
+    platform: linux/amd64
+    environment:
+      - AZURE_COSMOS_EMULATOR_PARTITION_COUNT=3
+      - AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE=false
+    ports:
+      - "8081:8081"
+      - "10251-10255:10251-10255"
+    healthcheck:
+      test: ["CMD", "curl", "-k", "https://localhost:8081/_explorer/emulator.pem"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s

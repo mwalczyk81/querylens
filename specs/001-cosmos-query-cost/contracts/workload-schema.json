@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QueryLensWorkload",
+  "type": "object",
+  "required": ["queries"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "default": "1"
+    },
+    "database": {
+      "type": "string",
+      "description": "Default target database name"
+    },
+    "container": {
+      "type": "string",
+      "description": "Default target container name"
+    },
+    "ru_budget": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Optional maximum cumulative RU limit for the workload"
+    },
+    "queries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "query"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for this query"
+          },
+          "query": {
+            "type": "string",
+            "description": "Cosmos DB SQL query statement"
+          },
+          "partition_key": {
+            "description": "Optional partition key value: single primitive scalar (string, number, boolean) or array of 1 to 3 primitive scalars for hierarchical partition keys. Nulls, empty lists, and nested lists are rejected.",
+            "oneOf": [
+              { "type": "string" },
+              { "type": "number" },
+              { "type": "boolean" },
+              {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 3,
+                "items": { "type": ["string", "number", "boolean"] }
+              }
+            ]
+          },
+          "parameters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "value"],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "pattern": "^@.+$",
+                  "description": "Parameter name starting with @"
+                },
+                "value": {
+                  "description": "Parameter value literal"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

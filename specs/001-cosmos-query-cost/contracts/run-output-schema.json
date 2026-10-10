@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QueryLensRunSummary",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "database",
+    "container",
+    "total_queries",
+    "completed_queries",
+    "total_ru_consumed",
+    "budget_exceeded",
+    "results"
+  ],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "database": {
+      "type": "string"
+    },
+    "container": {
+      "type": "string"
+    },
+    "total_queries": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "completed_queries": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_ru_consumed": {
+      "type": "number",
+      "minimum": 0
+    },
+    "ru_budget": {
+      "type": ["number", "null"]
+    },
+    "budget_exceeded": {
+      "type": "boolean"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["cost", "findings"],
+        "properties": {
+          "cost": {
+            "type": "object",
+            "required": [
+              "query_id",
+              "query_text",
+              "request_charge",
+              "latency_ms",
+              "documents_scanned",
+              "documents_returned",
+              "is_cross_partition",
+              "is_partial"
+            ],
+            "properties": {
+              "query_id": { "type": "string" },
+              "query_text": { "type": "string" },
+              "request_charge": { "type": "number" },
+              "latency_ms": { "type": "number" },
+              "documents_scanned": { "type": "integer" },
+              "documents_returned": { "type": "integer" },
+              "is_cross_partition": { "type": "boolean" },
+              "is_partial": { "type": "boolean" },
+              "error_message": { "type": ["string", "null"] },
+              "index_metrics": {
+                "type": ["object", "null"],
+                "properties": {
+                  "utilized_single": { "type": "array" },
+                  "potential_single": { "type": "array" },
+                  "utilized_composite": { "type": "array" },
+                  "potential_composite": { "type": "array" }
+                }
+              }
+            }
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["rule_id", "rule_name", "severity", "summary", "evidence"],
+              "properties": {
+                "rule_id": { "type": "string" },
+                "rule_name": { "type": "string" },
+                "severity": { "type": "string", "enum": ["INFO", "MEDIUM", "HIGH", "CRITICAL"] },
+                "summary": { "type": "string" },
+                "evidence": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
