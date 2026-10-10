@@ -28,10 +28,10 @@ For full architectural diagrams, extension seams, and deterministic exit-code de
   - `QL001: High RU Cost` — Flags queries exceeding warning (50 RUs) or critical (200 RUs) thresholds.
   - `QL002: Cross-Partition Fan-Out` — Identifies un-partitioned queries fanning out across physical partitions.
   - `QL003: Scan-to-Return Gap` — Diagnoses queries scanning significantly more documents than returned (10x warning, 100x critical, or 1000+ scanned with 0 returned).
-- **Zero-Impact & Payload Privacy Guarantee**:
+- **Read-Only & Payload Privacy**:
   - **Read-Only**: Strictly enforces read-only query execution with passwordless Entra ID (`DefaultAzureCredential`).
   - **Zero Payload Persistence**: Result document payloads are immediately consumed and discarded during streaming iteration; document contents are never logged, cached, or written to disk.
-  - **Per-Page Budget Guard**: Halts execution mid-query if cumulative RUs exceed `--ru-budget` to prevent billing surprises.
+  - **Per-Page Budget Guard**: Halts execution mid-query if cumulative RUs exceed `--ru-budget` to prevent billing surprises (the guard checks per page and can overshoot by up to one page).
 - **CI/CD Quality Gate**:
   - `--fail-on <severity>` exits with code `4` if performance regressions or anti-patterns exceed `critical`, `high`, or `medium` thresholds.
   - Strict machine-readable `--json` output conforming to JSON Schema.
