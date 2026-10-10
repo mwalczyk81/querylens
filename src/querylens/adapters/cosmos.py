@@ -268,15 +268,16 @@ class CosmosAdapter:
             )
 
             budget_breached = False
+            last_processed_header_idx = 0
             try:
                 for page in paged_items.by_page():
-                    # Check RU budget per page
-                    if page_headers:
-                        last_header = page_headers[-1]
-                        page_ru = float(last_header.get(HttpHeaders.RequestCharge, 0.0))
-                        cumulative_ru += page_ru
-                        if ru_budget is not None and cumulative_ru >= ru_budget:
-                            budget_breached = True
+                    # Sum all headers received since previous page
+                    new_headers = page_headers[last_processed_header_idx:]
+                    last_processed_header_idx = len(page_headers)
+                    page_ru = sum(float(h.get(HttpHeaders.RequestCharge, 0.0)) for h in new_headers)
+                    cumulative_ru += page_ru
+                    if ru_budget is not None and cumulative_ru > ru_budget:
+                        budget_breached = True
 
                     # Constitution Principle I: Zero-Impact, Read-Only Payload Privacy
                     # Discard document payloads immediately without storing in memory or disk.
