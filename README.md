@@ -11,6 +11,8 @@
 
 QueryLens is a fast, developer-friendly command-line profiler for **Azure Cosmos DB for NoSQL** query workloads. It captures Request Units (RUs), execution latencies, physical partition fan-out, and document scan-to-return ratios, ranks queries by cost, and flags anti-patterns with quantitative metric evidence.
 
+A **Request Unit (RU)** is Azure Cosmos DB's normalized unit of cost and throughput, representing the compute, memory, and IOPS consumed to execute a database operation. **Cross-partition fan-out** occurs when a query omits a scoped partition key, forcing Cosmos DB to query all physical partitions in parallel, multiplying latency and RU consumption as data scales.
+
 ---
 
 ## ⚙️ How It Works
