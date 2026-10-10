@@ -26,8 +26,7 @@ The profiler engine communicates with database engines exclusively through `Data
 
 ```python
 class DatabaseAdapter(Protocol):
-    def collect(self, workload: Workload) -> Iterator[QueryCost]:
-        ...
+    def collect(self, workload: Workload) -> Iterator[QueryCost]: ...
 ```
 
 `CosmosAdapter` implements this protocol for Azure Cosmos DB for NoSQL. Additional database adapters (such as MongoDB vCore, PostgreSQL, or Couchbase) can be plugged in by providing a new adapter conforming to `DatabaseAdapter` without altering the diagnostic rules, budget guards, or reporting layers.
