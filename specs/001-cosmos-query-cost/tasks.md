@@ -46,21 +46,21 @@
 **Independent Test**: Provide a sample YAML workload file with 3 queries against the emulator; run CLI; verify output table ranked descending by RU cost and `--json` output matches `contracts/run-output-schema.json` without retaining document payloads.
 
 ### Tests for User Story 1 (Test-First)
-- [ ] T011 [P] [US1] Create sample workload files and mock Cosmos DB response headers in `tests/fixtures/workloads/sample_workload.yaml` and `tests/fixtures/headers/query_metrics.txt`.
-- [ ] T012 [P] [US1] Write unit tests for Cosmos DB response header metric parsing in `tests/unit/test_cosmos_parsing.py` testing extraction of `x-ms-request-charge`, `x-ms-documentdb-query-metrics` (`retrievedDocumentCount`, `outputDocumentCount`), and Base64-decoded `x-ms-cosmos-index-utilization`.
-- [ ] T013 [P] [US1] Write test-first CLI exit code contract tests in `tests/unit/test_cli_exit_codes.py` verifying exit code `0` (success), exit code `1` (workload validation/format error), exit code `3` (connection error/unreachable host/missing container), and exit code `5` (auth error: invalid credentials, missing Data Reader role, HTTP 401/403).
+- [x] T011 [P] [US1] Create sample workload files and mock Cosmos DB response headers in `tests/fixtures/workloads/sample_workload.yaml` and `tests/fixtures/headers/query_metrics.txt`.
+- [x] T012 [P] [US1] Write unit tests for Cosmos DB response header metric parsing in `tests/unit/test_cosmos_parsing.py` testing extraction of `x-ms-request-charge`, `x-ms-documentdb-query-metrics` (`retrievedDocumentCount`, `outputDocumentCount`), and Base64-decoded `x-ms-cosmos-index-utilization`.
+- [x] T013 [P] [US1] Write test-first CLI exit code contract tests in `tests/unit/test_cli_exit_codes.py` verifying exit code `0` (success), exit code `1` (workload validation/format error), exit code `3` (connection error/unreachable host/missing container), and exit code `5` (auth error: invalid credentials, missing Data Reader role, HTTP 401/403).
 
 ### Implementation for User Story 1
-- [ ] T014 [US1] Implement `CosmosAdapter` in `src/querylens/adapters/cosmos.py`:
+- [x] T014 [US1] Implement `CosmosAdapter` in `src/querylens/adapters/cosmos.py`:
   - Implement `collect(workload: Workload) -> Iterator[QueryCost]`.
   - Connect via `CosmosClient` with `DefaultAzureCredential` for remote endpoints; accept `COSMOS_EMULATOR_KEY` only when endpoint resolves to `localhost` or `127.0.0.1`.
   - Execute queries using `container.query_items(query, parameters, partition_key, enable_cross_partition_query=True, populate_query_metrics=True, populate_index_metrics=True, max_item_count=settings.max_item_count, response_hook=...)`.
   - Discard item payloads immediately during iteration (`for _ in page: pass`).
   - Map response headers to `QueryCost` model.
   - Distinguish connection failures (exit code `3`) from authentication/authorization failures (HTTP 401, 403, credential errors) raising distinct typed exceptions.
-- [ ] T015 [P] [US1] Implement Rich terminal table and summary rendering in `src/querylens/report/console.py` sorting queries in descending order by `request_charge` and formatting latency, scanned, returned, and partition scope.
-- [ ] T016 [P] [US1] Implement machine-readable JSON serialization in `src/querylens/report/json_out.py` strictly conforming to `specs/001-cosmos-query-cost/contracts/run-output-schema.json`.
-- [ ] T017 [US1] Implement Click CLI commands in `src/querylens/cli.py` (`querylens run <workload_file>`) wiring options (`-e`, `-d`, `-c`, `--json`, `--debug`, `--max-item-count`), suppressing raw stack traces unless `--debug`, and enforcing exit codes `0`, `1`, `3`, and `5`.
+- [x] T015 [P] [US1] Implement Rich terminal table and summary rendering in `src/querylens/report/console.py` sorting queries in descending order by `request_charge` and formatting latency, scanned, returned, and partition scope.
+- [x] T016 [P] [US1] Implement machine-readable JSON serialization in `src/querylens/report/json_out.py` strictly conforming to `specs/001-cosmos-query-cost/contracts/run-output-schema.json`.
+- [x] T017 [US1] Implement Click CLI commands in `src/querylens/cli.py` (`querylens run <workload_file>`) wiring options (`-e`, `-d`, `-c`, `--json`, `--debug`, `--max-item-count`), suppressing raw stack traces unless `--debug`, and enforcing exit codes `0`, `1`, `3`, and `5`.
 
 **Checkpoint**: User Story 1 (MVP) is fully functional and independently verifiable.
 

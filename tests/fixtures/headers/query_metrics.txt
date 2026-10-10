@@ -1,0 +1,1 @@
+totalExecutionTimeInMs=14.25;queryCompileTimeInMs=0.32;queryLogicalPlanBuildTimeInMs=0.15;queryPhysicalPlanBuildTimeInMs=0.28;queryOptimizationTimeInMs=0.10;indexLookupTimeInMs=4.12;documentLoadTimeInMs=7.80;runtimeExecutionTimesInMs=1.48;documentWriteTimeInMs=0.00;retrievedDocumentCount=450;outputDocumentCount=12;outputDocumentSize=2048;indexUtilizationRatio=0.85

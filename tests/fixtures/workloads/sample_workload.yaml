@@ -1,0 +1,15 @@
+version: "1"
+database: "dev-db"
+container: "orders"
+ru_budget: 500.0
+queries:
+  - id: "point-read"
+    query: "SELECT * FROM c WHERE c.id = @id"
+    partition_key: "tenant-a"
+    parameters:
+      - name: "@id"
+        value: "order-123"
+  - id: "category-scan"
+    query: "SELECT c.id, c.total FROM c WHERE c.category = 'electronics'"
+  - id: "cross-partition-fanout"
+    query: "SELECT c.category, COUNT(1) AS cnt FROM c GROUP BY c.category"

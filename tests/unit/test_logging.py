@@ -18,7 +18,7 @@ class TestLogging:
             "item": {"val": 3},
             "items": [{"val": 4}],
             "body": "raw body",
-            "response_body": "{\"secret\": true}",
+            "response_body": '{"secret": true}',
             "request_charge": 12.5,
         }
         filtered = drop_payload_keys(None, "info", event_dict)
