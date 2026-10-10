@@ -7,6 +7,7 @@ Ensures deterministic exit codes:
 - 5: Authentication / Authorization failure
 """
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -341,3 +342,127 @@ queries:
         )
         assert result.exit_code == 1
         assert "must be a mapping" in result.output
+
+    @patch("querylens.cli.get_adapter")
+    def test_exit_code_3_mid_run_connection_error_renders_partial(
+        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        """Render partial results table before exiting with code 3 on mid-run connection error."""
+        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml.write_text(
+            """
+version: "1"
+database: "db"
+container: "c"
+queries:
+  - id: "q1"
+    query: "SELECT * FROM c WHERE c.id = '1'"
+  - id: "q2"
+    query: "SELECT * FROM c WHERE c.id = '2'"
+""",
+            encoding="utf-8",
+        )
+
+        def mock_collect(w: Any) -> Any:
+            yield QueryCost(
+                query_id="q1",
+                query_text="SELECT * FROM c WHERE c.id = '1'",
+                request_charge=4.2,
+                latency_ms=8.0,
+                documents_scanned=1,
+                documents_returned=1,
+                is_cross_partition=False,
+            )
+            raise ServiceRequestError("Network dropped mid-run")
+
+        mock_adapter = MagicMock()
+        mock_adapter.collect.side_effect = mock_collect
+        mock_get_adapter.return_value = mock_adapter
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["run", str(workload_yaml), "--endpoint", "https://localhost:8081/"],
+        )
+        assert result.exit_code == 3
+        assert "q1" in result.output
+        assert "Connection error: Network dropped mid-run" in result.output
+
+    @patch("querylens.cli.get_adapter")
+    def test_exit_code_3_mid_run_connection_error_renders_partial_json(
+        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        """Render partial JSON summary before exiting with code 3 on mid-run server error."""
+        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml.write_text(
+            """
+version: "1"
+database: "db"
+container: "c"
+queries:
+  - id: "q1"
+    query: "SELECT * FROM c WHERE c.id = '1'"
+  - id: "q2"
+    query: "SELECT * FROM c WHERE c.id = '2'"
+""",
+            encoding="utf-8",
+        )
+
+        def mock_collect(w: Any) -> Any:
+            yield QueryCost(
+                query_id="q1",
+                query_text="SELECT * FROM c WHERE c.id = '1'",
+                request_charge=4.2,
+                latency_ms=8.0,
+                documents_scanned=1,
+                documents_returned=1,
+                is_cross_partition=False,
+            )
+            raise CosmosHttpResponseError(status_code=503, message="Service Unavailable")
+
+        mock_adapter = MagicMock()
+        mock_adapter.collect.side_effect = mock_collect
+        mock_get_adapter.return_value = mock_adapter
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["run", str(workload_yaml), "--endpoint", "https://localhost:8081/", "--json"],
+        )
+        assert result.exit_code == 3
+        # JSON is printed before the error message; check it contains partial summary
+        assert '"completed_queries": 1' in result.output
+        assert '"total_queries": 2' in result.output
+        assert "Cosmos server error (HTTP 503)" in result.output
+
+    @patch("querylens.cli.get_adapter")
+    def test_exit_code_3_rate_limit_429(
+        self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        """Exit code 3 with rate limit message when Cosmos DB returns HTTP 429."""
+        workload_yaml = tmp_path / "workload.yaml"  # pyrefly: ignore
+        workload_yaml.write_text(
+            """
+version: "1"
+database: "db"
+container: "c"
+queries:
+  - id: "q1"
+    query: "SELECT * FROM c"
+""",
+            encoding="utf-8",
+        )
+
+        mock_adapter = MagicMock()
+        mock_adapter.collect.side_effect = CosmosHttpResponseError(
+            status_code=429, message="Request rate is large"
+        )
+        mock_get_adapter.return_value = mock_adapter
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["run", str(workload_yaml), "--endpoint", "https://localhost:8081/"],
+        )
+        assert result.exit_code == 3
+        assert "Rate limit exceeded (HTTP 429 RequestRateTooLarge)" in result.output

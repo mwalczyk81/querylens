@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import field_validator
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     endpoint: str = ""
     database: str = ""
     container: str = ""
-    cosmos_key: str | None = None  # ONLY permitted for localhost/emulator
+    cosmos_key: SecretStr | None = None  # ONLY permitted for localhost/emulator
 
     # Execution & Safety
     ru_budget: float | None = None
@@ -58,3 +58,24 @@ class Settings(BaseSettings):
                 f"Invalid --fail-on value: '{v}'. Must be 'critical', 'high', or 'medium'."
             )
         return v_str
+
+    @field_validator("endpoint")
+    @classmethod
+    def validate_https_endpoint(cls, v: str) -> str:
+        """Ensure endpoint uses HTTPS protocol.
+
+        Args:
+            v: The input endpoint string.
+
+        Returns:
+            Validated endpoint string.
+
+        Raises:
+            ValueError: If endpoint does not start with https://.
+        """
+        if v:
+            stripped = v.strip()
+            if not stripped.startswith("https://"):
+                raise ValueError(f"Endpoint must use HTTPS protocol: '{v}'. HTTP is not permitted.")
+            return stripped
+        return v

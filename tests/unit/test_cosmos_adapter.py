@@ -138,3 +138,67 @@ class TestCosmosAdapter:
             assert len(results) == 1
             assert results[0].error_message is not None
             assert "Syntax error" in results[0].error_message
+
+    def test_collect_re_raises_429_throttling(self) -> None:
+        """Re-raise HTTP 429 (rate-limiting) instead of converting to zero-RU row."""
+        settings = Settings(
+            endpoint="https://localhost:8081/",
+            database="testdb",
+            container="testc",
+        )
+        with patch("querylens.adapters.cosmos.CosmosClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client_cls.return_value = mock_client
+            mock_db = MagicMock()
+            mock_container = MagicMock()
+            mock_client.get_database_client.return_value = mock_db
+            mock_db.get_container_client.return_value = mock_container
+
+            mock_paged = MagicMock()
+            mock_paged.by_page.side_effect = CosmosHttpResponseError(
+                status_code=429, message="Request rate is large"
+            )
+            mock_container.query_items.return_value = mock_paged
+
+            adapter = CosmosAdapter(settings)
+            workload = Workload(
+                database="testdb",
+                container="testc",
+                queries=[QueryDefinition(id="q1", query="SELECT * FROM c")],
+            )
+
+            with pytest.raises(CosmosHttpResponseError) as exc_info:
+                list(adapter.collect(workload))
+            assert exc_info.value.status_code == 429
+
+    def test_collect_re_raises_500_server_error(self) -> None:
+        """Re-raise HTTP 500 (internal server error) instead of converting to zero-RU row."""
+        settings = Settings(
+            endpoint="https://localhost:8081/",
+            database="testdb",
+            container="testc",
+        )
+        with patch("querylens.adapters.cosmos.CosmosClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client_cls.return_value = mock_client
+            mock_db = MagicMock()
+            mock_container = MagicMock()
+            mock_client.get_database_client.return_value = mock_db
+            mock_db.get_container_client.return_value = mock_container
+
+            mock_paged = MagicMock()
+            mock_paged.by_page.side_effect = CosmosHttpResponseError(
+                status_code=500, message="Internal Server Error"
+            )
+            mock_container.query_items.return_value = mock_paged
+
+            adapter = CosmosAdapter(settings)
+            workload = Workload(
+                database="testdb",
+                container="testc",
+                queries=[QueryDefinition(id="q1", query="SELECT * FROM c")],
+            )
+
+            with pytest.raises(CosmosHttpResponseError) as exc_info:
+                list(adapter.collect(workload))
+            assert exc_info.value.status_code == 500

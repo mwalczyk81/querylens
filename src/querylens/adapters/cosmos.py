@@ -189,13 +189,14 @@ class CosmosAdapter:
         parsed = urlparse(endpoint)
         is_local = parsed.hostname in ("localhost", "127.0.0.1")
 
-        if settings.cosmos_key:
+        cosmos_key = settings.cosmos_key.get_secret_value() if settings.cosmos_key else None
+        if cosmos_key:
             if not is_local:
                 raise ValueError(
                     "Cosmos DB master key authentication is ONLY permitted for local emulator "
                     "(localhost / 127.0.0.1). Remote endpoints require DefaultAzureCredential."
                 )
-            credential = settings.cosmos_key
+            credential = cosmos_key
         else:
             credential = DefaultAzureCredential()
 
@@ -229,13 +230,8 @@ class CosmosAdapter:
         if not database_name or not container_name:
             raise ValueError("Target database and container must be specified.")
 
-        try:
-            database = self.client.get_database_client(database_name)
-            container = database.get_container_client(container_name)
-        except (ClientAuthenticationError, CosmosResourceNotFoundError, ServiceRequestError):
-            raise
-        except CosmosHttpResponseError as e:
-            raise e
+        database = self.client.get_database_client(database_name)
+        container = database.get_container_client(container_name)
 
         ru_budget = self.settings.ru_budget or workload.ru_budget
         cumulative_ru = 0.0
@@ -294,20 +290,21 @@ class CosmosAdapter:
             ):
                 raise
             except CosmosHttpResponseError as exc:
-                if exc.status_code in (401, 403, 404):
-                    raise
-                # Individual query execution error (e.g. syntax error in query)
-                yield QueryCost(
-                    query_id=query_def.id,
-                    query_text=query_def.query,
-                    request_charge=0.0,
-                    latency_ms=0.0,
-                    documents_scanned=0,
-                    documents_returned=0,
-                    is_cross_partition=False,
-                    error_message=str(exc.message or exc),
-                )
-                continue
+                if exc.status_code == 400:
+                    # Individual query execution error (e.g. syntax error in query)
+                    yield QueryCost(
+                        query_id=query_def.id,
+                        query_text=query_def.query,
+                        request_charge=0.0,
+                        latency_ms=0.0,
+                        documents_scanned=0,
+                        documents_returned=0,
+                        is_cross_partition=False,
+                        error_message=str(exc.message or exc),
+                    )
+                    continue
+                # Re-raise 429 (throttled), 5xx (server error), 401/403 (auth), 404
+                raise
 
             agg = aggregate_query_headers(page_headers, query_def=query_def)
             cost = QueryCost(

@@ -49,3 +49,24 @@ class TestSettings:
         with pytest.raises(ValidationError) as exc_info:
             Settings(fail_on="invalid_severity")  # pyrefly: ignore
         assert "Invalid --fail-on value" in str(exc_info.value)
+
+    def test_cosmos_key_secret_str(self) -> None:
+        """Verify cosmos_key is stored as SecretStr and not exposed in repr."""
+        settings = Settings(cosmos_key="secret-master-key-xyz")  # pyrefly: ignore
+        assert settings.cosmos_key is not None
+        assert settings.cosmos_key.get_secret_value() == "secret-master-key-xyz"
+        assert "secret-master-key-xyz" not in repr(settings.cosmos_key)
+        assert "secret-master-key-xyz" not in repr(settings)
+
+    def test_endpoint_https_validation(self) -> None:
+        """Reject non-HTTPS endpoints and accept valid HTTPS endpoints."""
+        settings = Settings(endpoint="https://localhost:8081/")
+        assert settings.endpoint == "https://localhost:8081/"
+
+        with pytest.raises(ValidationError) as exc_info:
+            Settings(endpoint="http://localhost:8081/")
+        assert "Endpoint must use HTTPS protocol" in str(exc_info.value)
+
+        with pytest.raises(ValidationError) as exc_info:
+            Settings(endpoint="ftp://cosmos.azure.com/")
+        assert "Endpoint must use HTTPS protocol" in str(exc_info.value)

@@ -183,6 +183,24 @@ def run(
     budget_exceeded = False
     total_ru = 0.0
 
+    def _render_partial_if_present() -> None:
+        if results:
+            partial_summary = WorkloadRunSummary(
+                timestamp=start_time,
+                database=resolved_database,
+                container=resolved_container,
+                total_queries=len(workload.queries),
+                completed_queries=len(results),
+                total_ru_consumed=round(total_ru, 2),
+                ru_budget=settings.ru_budget or workload.ru_budget,
+                budget_exceeded=budget_exceeded,
+                results=results,
+            )
+            if json_output:
+                click.echo(serialize_summary_json(partial_summary))
+            else:
+                render_console_report(partial_summary)
+
     try:
         for cost in adapter.collect(workload):
             total_ru += cost.request_charge
@@ -196,6 +214,10 @@ def run(
     except ClientAuthenticationError as exc:
         click.echo(f"Authentication failure: {exc}", err=True)
         sys.exit(5)
+    except (CosmosResourceNotFoundError, ServiceRequestError, CosmosClientTimeoutError) as exc:
+        _render_partial_if_present()
+        click.echo(f"Connection error: {exc}", err=True)
+        sys.exit(3)
     except CosmosHttpResponseError as exc:
         if exc.status_code in (401, 403):
             click.echo(
@@ -203,13 +225,23 @@ def run(
                 err=True,
             )
             sys.exit(5)
+        _render_partial_if_present()
         if exc.status_code == 404:
             click.echo(f"Connection error: Resource not found: {exc.message}", err=True)
             sys.exit(3)
+        if exc.status_code == 429:
+            click.echo(
+                f"Rate limit exceeded (HTTP 429 RequestRateTooLarge): {exc.message}",
+                err=True,
+            )
+            sys.exit(3)
+        if exc.status_code is not None and exc.status_code >= 500:
+            click.echo(
+                f"Cosmos server error (HTTP {exc.status_code}): {exc.message}",
+                err=True,
+            )
+            sys.exit(3)
         click.echo(f"Cosmos HTTP error (status {exc.status_code}): {exc.message}", err=True)
-        sys.exit(3)
-    except (CosmosResourceNotFoundError, ServiceRequestError, CosmosClientTimeoutError) as exc:
-        click.echo(f"Connection error: {exc}", err=True)
         sys.exit(3)
 
     summary = WorkloadRunSummary(
