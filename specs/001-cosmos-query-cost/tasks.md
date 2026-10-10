@@ -20,7 +20,7 @@
 
 **Purpose**: Core data models, protocol contracts, and configuration that MUST be complete before user stories can execute.
 
-- [ ] T006 Implement domain models and enums in `src/querylens/model.py`:
+- [x] T006 Implement domain models and enums in `src/querylens/model.py`:
   - `Severity` enum: `INFO`, `MEDIUM`, `HIGH`, `CRITICAL` with ordering `level` comparison (`INFO < MEDIUM < HIGH < CRITICAL`).
   - `QueryParameter`: `name: str` (matching `@.+`), `value: Any`.
   - `QueryDefinition`: `id: str`, `query: str`, `parameters: list[QueryParameter]`, `partition_key: str | int | float | bool | list[str | int | float | bool] | None`. Include Pydantic field validator enforcing list length between 1 and 3 (`1 <= len <= 3`), rejecting empty lists (`[]`), nested lists, and null (`None`) values.
@@ -30,10 +30,10 @@
   - `Finding`: `rule_id: str`, `rule_name: str`, `severity: Severity`, `summary: str`, `evidence: dict[str, Any]`.
   - `QueryResultSummary`: `cost: QueryCost`, `findings: list[Finding]`.
   - `WorkloadRunSummary`: `timestamp: str`, `database: str`, `container: str`, `total_queries: int`, `completed_queries: int`, `total_ru_consumed: float`, `ru_budget: float | None`, `budget_exceeded: bool`, `results: list[QueryResultSummary]`.
-- [ ] T007 [P] Implement configuration settings in `src/querylens/config.py` using `pydantic-settings` (`Settings` with `QUERYLENS_` prefix) covering `endpoint`, `database`, `container`, `cosmos_key`, `ru_budget`, `max_item_count`, `debug`, `fail_on`, and rule thresholds (`high_ru_warning`, `high_ru_critical`, `scan_gap_ratio_warning`, `scan_gap_ratio_critical`, `scan_gap_absolute_threshold`).
-- [ ] T008 [P] Implement `DatabaseAdapter` `typing.Protocol` in `src/querylens/adapters/protocol.py` defining the contract `collect(workload: Workload) -> Iterator[QueryCost]`.
-- [ ] T009 [P] Implement structured logging configuration in `src/querylens/logging.py` using `structlog` ensuring query result payload dictionaries are never logged or persisted.
-- [ ] T010 Unit tests for workload parsing and model validation in `tests/unit/test_models.py`, testing valid scalars, valid 1-3 item partition key lists, and asserting rejections of empty lists, nested lists, and nulls with exit code 1.
+- [x] T007 [P] Implement configuration settings in `src/querylens/config.py` using `pydantic-settings` (`Settings` with `QUERYLENS_` prefix) covering `endpoint`, `database`, `container`, `cosmos_key`, `ru_budget`, `max_item_count`, `debug`, `fail_on`, and rule thresholds (`high_ru_warning`, `high_ru_critical`, `scan_gap_ratio_warning`, `scan_gap_ratio_critical`, `scan_gap_absolute_threshold`).
+- [x] T008 [P] Implement `DatabaseAdapter` `typing.Protocol` in `src/querylens/adapters/protocol.py` defining the contract `collect(workload: Workload) -> Iterator[QueryCost]`.
+- [x] T009 [P] Implement structured logging configuration in `src/querylens/logging.py` using `structlog` ensuring query result payload dictionaries are never logged or persisted.
+- [x] T010 Unit tests for workload parsing and model validation in `tests/unit/test_models.py`, testing valid scalars, valid 1-3 item partition key lists, and asserting rejections of empty lists, nested lists, and nulls with exit code 1.
 
 **Checkpoint**: Foundation complete. Core models and contracts are ready for user story execution.
 
