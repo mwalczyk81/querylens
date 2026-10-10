@@ -70,7 +70,7 @@ To re-run against the local emulator to refresh `sample-run.json` and the SVG:
 uv run python scripts/gen_readme_assets.py --refresh
 ```
 
-A drift test in `tests/unit/test_readme_assets.py` runs in CI to verify byte-for-byte equality between the committed SVG and newly generated output.
+When refreshing sample run metrics, ensure the single-query `--json` excerpt in `README.md` is updated to match. A drift test in `tests/unit/test_readme_assets.py` runs in CI to verify byte-for-byte equality for the SVG and consistency of the README JSON excerpt against `sample-run.json`.
 
 ---
 

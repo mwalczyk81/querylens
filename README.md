@@ -11,6 +11,8 @@
 
 QueryLens is a fast, developer-friendly command-line profiler for **Azure Cosmos DB for NoSQL** query workloads. It captures Request Units (RUs), execution latencies, physical partition fan-out, and document scan-to-return ratios, ranks queries by cost, and flags anti-patterns with quantitative metric evidence.
 
+A **Request Unit (RU)** is Azure Cosmos DB's normalized unit of cost and throughput, representing the compute, memory, and IOPS consumed to execute a database operation. **Cross-partition fan-out** occurs when a query omits a scoped partition key, forcing Cosmos DB to query all physical partitions in parallel, multiplying latency and RU consumption as data scales.
+
 ---
 
 ## ⚙️ How It Works
@@ -28,10 +30,10 @@ For full architectural diagrams, extension seams, and deterministic exit-code de
   - `QL001: High RU Cost` — Flags queries exceeding warning (50 RUs) or critical (200 RUs) thresholds.
   - `QL002: Cross-Partition Fan-Out` — Identifies un-partitioned queries fanning out across physical partitions.
   - `QL003: Scan-to-Return Gap` — Diagnoses queries scanning significantly more documents than returned (10x warning, 100x critical, or 1000+ scanned with 0 returned).
-- **Zero-Impact & Payload Privacy Guarantee**:
+- **Read-Only & Payload Privacy**:
   - **Read-Only**: Strictly enforces read-only query execution with passwordless Entra ID (`DefaultAzureCredential`).
   - **Zero Payload Persistence**: Result document payloads are immediately consumed and discarded during streaming iteration; document contents are never logged, cached, or written to disk.
-  - **Per-Page Budget Guard**: Halts execution mid-query if cumulative RUs exceed `--ru-budget` to prevent billing surprises.
+  - **Per-Page Budget Guard**: Halts execution mid-query if cumulative RUs exceed `--ru-budget` to prevent billing surprises (the guard checks per page and can overshoot by up to one page).
 - **CI/CD Quality Gate**:
   - `--fail-on <severity>` exits with code `4` if performance regressions or anti-patterns exceed `critical`, `high`, or `medium` thresholds.
   - Strict machine-readable `--json` output conforming to JSON Schema.
@@ -40,21 +42,54 @@ For full architectural diagrams, extension seams, and deterministic exit-code de
 
 ## 🚀 Quickstart
 
-Get started locally with QueryLens in seconds using Docker Compose and the local Cosmos DB emulator:
+Get started locally with QueryLens in a few minutes using Docker Compose and the local Cosmos DB emulator:
 
-### 1. Start Local Cosmos DB Emulator
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) (with Docker Compose)
+- [uv](https://docs.astral.sh/uv/) (recommended) or [Python 3.12+](https://www.python.org/downloads/)
+- [Git](https://git-scm.com/)
+
+### 1. Clone & Synchronize Dependencies
+
+```bash
+git clone https://github.com/mwalczyk81/querylens.git
+cd querylens
+uv sync
+```
+
+### 2. Start Local Cosmos DB Emulator
 
 ```bash
 docker compose up -d
 ```
 
-### 2. Seed Emulator with Deterministic Test Data
+### 3. Seed Emulator with Deterministic Test Data
 
 ```bash
 uv run python scripts/seed_emulator.py
 ```
 
-### 3. Run QueryLens Against Example Workload
+The script initializes the `querylens_dev` database with two containers: `items` (default indexing) and `unindexed_items` (where `/unindexed_tag/?` is excluded from the indexing policy), deterministically populating 1,320 documents across 60 partition keys (including small items, 20 large multi-KB documents, and a dense 121-document partition) to trigger fan-out and scan-gap metrics.
+
+### 4. Run QueryLens Against Example Workload
+
+Workload files define target containers and queries to profile (see [`examples/workload.yaml`](examples/workload.yaml)):
+
+```yaml
+version: "1"
+database: "querylens_dev"
+container: "unindexed_items"
+
+queries:
+  # Expected: QL001 (High RU Cost) and QL002 (Cross-Partition Fan-Out)
+  - id: "high_ru_scan"
+    query: "SELECT * FROM c"
+
+  # Expected: QL002 (Cross-Partition Fan-Out)
+  - id: "cross_partition_fanout"
+    query: "SELECT * FROM c WHERE c.status = 'active'"
+```
 
 Configure the emulator endpoint and master key, then profile the workload:
 
@@ -70,31 +105,9 @@ $env:QUERYLENS_COSMOS_KEY = "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVT
 uv run querylens run examples/workload.yaml
 ```
 
-### Sample Output
-
-```text
-+------------------------ QueryLens Workload Profile -------------------------+
-| Database: querylens_dev  |  Container: unindexed_items  |  Page size: 100   |
-| Executed: 5/5 queries  |  Total RUs: 163.30 RUs  |  Budget: none            |
-+-----------------------------------------------------------------------------+
-+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
-|  Rank | Query ID                         |    RU Cost | Server time |   Scanned |  Returned | Fan-Out | Severity | Diagnostic Findings                         |
-|-------+----------------------------------+------------+-------------+-----------+-----------+---------+----------+---------------------------------------------|
-|     1 | cross_partition_fanout           |      65.65 |      7.2 ms |       995 |       995 |   Yes   |   HIGH   | High RU Cost (QL001), Fan-Out (QL002)       |
-|     2 | high_ru_scan                     |      63.10 |      7.7 ms |      1320 |      1320 |   Yes   |   HIGH   | High RU Cost (QL001), Fan-Out (QL002)       |
-|     3 | scan_gap_unindexed               |      22.07 |      2.4 ms |      1320 |         1 |   Yes   | CRITICAL | Fan-Out (QL002), Scan-to-Return Gap (QL003) |
-|     4 | control_single_partition_multipage|       9.56 |      1.1 ms |       121 |       121 |    No   |   INFO   | None (Clean Control)                        |
-|     5 | control_point_read               |       2.92 |      0.3 ms |         1 |         1 |    No   |   INFO   | None (Clean Control)                        |
-+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
-
-Diagnostic Details:
-
-● Query: scan_gap_unindexed
-  - Scan-to-Return Gap (QL003) [CRITICAL]: Scanned-to-returned ratio of 1220.0x exceeds critical threshold (100.0x).
-    Evidence: {'ratio': 1220.0, 'documents_scanned': 1220, 'documents_returned': 1, 'threshold': 100.0}
-```
-
 > [!NOTE]
+> **Emulator Key & TLS Verification**: The key shown above is Microsoft's public well-known Cosmos DB emulator key, not a secret. TLS verification is disabled for the local emulator only (the CLI prints a one-line notice: `TLS verification disabled for local emulator`). Remote Azure endpoints enforce strict TLS validation and authenticate via passwordless Entra ID (`DefaultAzureCredential`).
+>
 > **Page Size and RU Accounting**: Reported Request Units include Azure Cosmos DB's minimum per-request charge (approximately 2.9 RU per HTTP gateway request page). Consequently, cumulative RU consumption increases as `--max-item-count` shrinks because retrieving the same dataset requires more round-trip pages. Always compare workload profiling runs using identical page sizes (`--max-item-count`).
 >
 > **Partial Results Semantics**: When cumulative Request Units exceed `--ru-budget`, execution terminates immediately:
@@ -110,47 +123,45 @@ Diagnostic Details:
 
 QueryLens supports CI/CD automation and dashboard integration via the global `--json` flag. The structured output conforms to [`run-output-schema.json`](specs/001-cosmos-query-cost/contracts/run-output-schema.json).
 
+Below is a single-query excerpt from [`docs/assets/sample-run.json`](docs/assets/sample-run.json) showing cost metrics and diagnostic findings matching the terminal profile:
+
 ```json
 {
-  "timestamp": "2026-10-10T12:00:00Z",
-  "database": "querylens_dev",
-  "container": "unindexed_items",
-  "max_item_count": 100,
-  "total_queries": 1,
-  "completed_queries": 1,
-  "total_ru_consumed": 22.07,
-  "ru_budget": null,
-  "budget_exceeded": false,
-  "results": [
+  "cost": {
+    "query_id": "scan_gap_unindexed",
+    "query_text": "SELECT * FROM c WHERE c.unindexed_tag = 'target'",
+    "request_charge": 22.07,
+    "latency_ms": 2.3,
+    "documents_scanned": 1320,
+    "documents_returned": 1,
+    "is_cross_partition": true,
+    "is_partial": false,
+    "index_metrics": null,
+    "error_message": null,
+    "activity_id": null,
+    "has_partition_key": false
+  },
+  "findings": [
     {
-      "cost": {
-        "query_id": "scan_gap_unindexed",
-        "query_text": "SELECT * FROM c WHERE c.unindexed_tag = 'rare_tag'",
-        "request_charge": 22.07,
-        "latency_ms": 2.4,
+      "rule_id": "QL002",
+      "rule_name": "Cross-Partition Fan-Out",
+      "severity": "MEDIUM",
+      "summary": "Query execution fanned out across multiple physical partitions without a scoped partition key.",
+      "evidence": {
+        "is_cross_partition": true
+      }
+    },
+    {
+      "rule_id": "QL003",
+      "rule_name": "Scan-to-Return Gap",
+      "severity": "CRITICAL",
+      "summary": "Scanned-to-returned ratio of 1320.0x exceeds critical threshold (100.0x).",
+      "evidence": {
+        "ratio": 1320.0,
         "documents_scanned": 1320,
         "documents_returned": 1,
-        "is_cross_partition": true,
-        "is_partial": false,
-        "has_partition_key": false,
-        "error_message": null,
-        "activity_id": "d04084f3-...",
-        "index_metrics": null
-      },
-      "findings": [
-        {
-          "rule_id": "QL003",
-          "rule_name": "Scan-to-Return Gap",
-          "severity": "CRITICAL",
-          "summary": "Scanned-to-returned ratio of 1320.0x exceeds critical threshold (100.0x).",
-          "evidence": {
-            "ratio": 1320.0,
-            "documents_scanned": 1320,
-            "documents_returned": 1,
-            "threshold": 100.0
-          }
-        }
-      ]
+        "threshold": 100.0
+      }
     }
   ]
 }
