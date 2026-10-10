@@ -84,6 +84,20 @@ queries:
         assert result.exit_code == 1
         assert "database" in result.output.lower() or "container" in result.output.lower()
 
+    def test_exit_code_1_unknown_flag(self) -> None:
+        """Exit code 1 on CLI usage error: unknown command-line option."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["run", "workload.yaml", "--non-existent-option"])
+        assert result.exit_code == 1
+        assert "no such option" in result.output.lower() or "error" in result.output.lower()
+
+    def test_exit_code_1_missing_argument(self) -> None:
+        """Exit code 1 on CLI usage error: missing required argument."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["run"])
+        assert result.exit_code == 1
+        assert "missing argument" in result.output.lower() or "error" in result.output.lower()
+
     @patch("querylens.cli.get_adapter")
     def test_exit_code_0_success(
         self, mock_get_adapter: MagicMock, tmp_path: pytest.TempPathFactory

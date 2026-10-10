@@ -84,7 +84,7 @@ QueryLens enforces deterministic exit codes designed for automated CI/CD pipelin
 | Exit Code | Classification | Trigger Condition |
 | :---: | :--- | :--- |
 | **`0`** | **Success** | All queries executed successfully without budget exhaustion, and all findings are below `--fail-on` threshold. |
-| **`1`** | **Validation / Usage Error** | Invalid YAML, missing arguments, or invalid partition key format (length not 1–3, nulls, nested lists). |
+| **`1`** | **Validation / Usage Error** | CLI usage errors (unknown option, missing argument), invalid YAML, or invalid partition key format (length not 1–3, nulls, nested lists). |
 | **`2`** | **Budget Exceeded** | Cumulative Request Units exceeded `--ru-budget`. Execution aborted mid-query; partial results returned. |
 | **`3`** | **Connection Error** | Network unreachable, DNS resolution error, or target database/container not found (HTTP 404). |
 | **`4`** | **Diagnostic Gate Breached** | At least one diagnostic finding met or exceeded `--fail-on <severity>`. |

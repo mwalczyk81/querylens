@@ -30,6 +30,10 @@ from querylens.report.console import render_console_report
 from querylens.report.json_out import serialize_summary_json
 from querylens.rules import evaluate_rules
 
+# Align Click usage errors with QueryLens exit code 1 (Validation / Usage Error)
+# Click defaults UsageError to 2, which collides with QueryLens code 2 (RU Budget Exceeded).
+click.exceptions.UsageError.exit_code = 1
+
 
 def get_adapter(settings: Settings) -> DatabaseAdapter:
     """Factory creating database adapter instance.
