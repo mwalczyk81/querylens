@@ -1,0 +1,19 @@
+# Configuration for markdownlint-cli2
+# See https://github.com/DavidAnson/markdownlint-cli2#configuration-interface
+
+config:
+  default: true
+  MD013: false  # Line length
+  MD024:
+    siblings_only: true  # Allow duplicate headings across different phases/sections
+  MD033: false  # Allow inline HTML
+  MD041: false  # First line in file does not have to be a top-level heading
+
+ignores:
+  - ".venv"
+  - "node_modules"
+  - ".agents"
+  - ".specify/templates"
+  - ".pytest_cache"
+
+fix: true

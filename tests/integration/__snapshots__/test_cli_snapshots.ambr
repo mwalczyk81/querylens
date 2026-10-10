@@ -1,0 +1,40 @@
+# serializer version: 1
+# name: TestCliSnapshots.test_cli_error_query_snapshot
+  dict({
+    'activity_id': '00000000-0000-0000-0000-000000000001',
+    'documents_returned': 0,
+    'documents_scanned': 0,
+    'error_message': "HTTP 400: Syntax error, incorrect syntax near 'FROM'.",
+    'has_partition_key': False,
+    'index_metrics': None,
+    'is_cross_partition': False,
+    'is_partial': False,
+    'latency_ms': 0.0,
+    'query_id': 'q_bad_syntax',
+    'query_text': 'SELECT FROM c',
+    'request_charge': 0.0,
+  })
+# ---
+# name: TestCliSnapshots.test_cli_partial_no_partition_key_json
+  dict({
+    'activity_id': None,
+    'documents_returned': 50,
+    'documents_scanned': 200,
+    'error_message': None,
+    'has_partition_key': False,
+    'index_metrics': None,
+    'is_cross_partition': None,
+    'is_partial': True,
+    'latency_ms': 12.5,
+    'query_id': 'q_unscoped',
+    'query_text': "SELECT * FROM c WHERE c.category = 'books'",
+    'request_charge': 15.0,
+  })
+# ---
+# name: TestCliSnapshots.test_cli_partial_results_table_snapshot
+  list([
+    '│  Rank │ Query ID        │         RU Cost │  Server time │   Scanned │  Returned │ Fan-Out  │ Findings             │',
+    '│     1 │ q_unscoped      │ 15.00 (partial) │      12.5 ms │       200 │        50 │ unknown  │ n/a (partial)        │',
+    '│     2 │ q_scoped        │ 10.00 (partial) │       8.0 ms │       100 │        30 │    No    │ n/a (partial)        │',
+  ])
+# ---

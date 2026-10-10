@@ -1,1 +1,222 @@
-# querylens
+# QueryLens 🔍
+
+[![CI](https://github.com/mwalczyk81/querylens/actions/workflows/ci.yml/badge.svg)](https://github.com/mwalczyk81/querylens/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+
+QueryLens is a fast, developer-friendly command-line profiler for **Azure Cosmos DB for NoSQL** query workloads. It captures Request Units (RUs), execution latencies, physical partition fan-out, and document scan-to-return ratios, ranks queries by cost, and flags anti-patterns with quantitative metric evidence.
+
+---
+
+## ✨ Features
+
+- **Ranked Workload Profiling**: Executes a YAML workload of queries and ranks them descending by Request Units (RUs).
+- **Automated Anti-Pattern Diagnostics**:
+  - `QL001: High RU Cost` — Flags queries exceeding warning (50 RUs) or critical (200 RUs) thresholds.
+  - `QL002: Cross-Partition Fan-Out` — Identifies un-partitioned queries fanning out across physical partitions.
+  - `QL003: Scan-to-Return Gap` — Diagnoses queries scanning significantly more documents than returned (10x warning, 100x critical, or 1000+ scanned with 0 returned).
+- **Zero-Impact & Payload Privacy Guarantee**:
+  - **Read-Only**: Strictly enforces read-only query execution with passwordless Entra ID (`DefaultAzureCredential`).
+  - **Zero Payload Persistence**: Result document payloads are immediately consumed and discarded during streaming iteration; document contents are never logged, cached, or written to disk.
+  - **Per-Page Budget Guard**: Halts execution mid-query if cumulative RUs exceed `--ru-budget` to prevent billing surprises.
+- **CI/CD Quality Gate**:
+  - `--fail-on <severity>` exits with code `4` if performance regressions or anti-patterns exceed `critical`, `high`, or `medium` thresholds.
+  - Strict machine-readable `--json` output conforming to JSON Schema.
+
+---
+
+## 🚀 Quickstart
+
+Get started locally with QueryLens in seconds using Docker Compose and the local Cosmos DB emulator:
+
+### 1. Start Local Cosmos DB Emulator
+
+```bash
+docker compose up -d
+```
+
+### 2. Seed Emulator with Deterministic Test Data
+
+```bash
+uv run python scripts/seed_emulator.py
+```
+
+### 3. Run QueryLens Against Example Workload
+
+Configure the emulator endpoint and master key, then profile the workload:
+
+```bash
+# On Linux / macOS / Bash:
+export QUERYLENS_ENDPOINT="https://localhost:8081/"
+export QUERYLENS_COSMOS_KEY="C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+uv run querylens run examples/workload.yaml
+
+# On Windows PowerShell:
+$env:QUERYLENS_ENDPOINT = "https://localhost:8081/"
+$env:QUERYLENS_COSMOS_KEY = "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+uv run querylens run examples/workload.yaml
+```
+
+### Sample Output
+
+```text
++------------------------ QueryLens Workload Profile -------------------------+
+| Database: querylens_dev  |  Container: unindexed_items  |  Page size: 100   |
+| Executed: 5/5 queries  |  Total RUs: 163.30 RUs  |  Budget: none            |
++-----------------------------------------------------------------------------+
++---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|  Rank | Query ID                         |    RU Cost | Server time |   Scanned |  Returned | Fan-Out | Severity | Diagnostic Findings                         |
+|-------+----------------------------------+------------+-------------+-----------+-----------+---------+----------+---------------------------------------------|
+|     1 | cross_partition_fanout           |      65.65 |      7.2 ms |       995 |       995 |   Yes   |   HIGH   | High RU Cost (QL001), Fan-Out (QL002)       |
+|     2 | high_ru_scan                     |      63.10 |      7.7 ms |      1320 |      1320 |   Yes   |   HIGH   | High RU Cost (QL001), Fan-Out (QL002)       |
+|     3 | scan_gap_unindexed               |      22.07 |      2.4 ms |      1320 |         1 |   Yes   | CRITICAL | Fan-Out (QL002), Scan-to-Return Gap (QL003) |
+|     4 | control_single_partition_multipage|       9.56 |      1.1 ms |       121 |       121 |    No   |   INFO   | None (Clean Control)                        |
+|     5 | control_point_read               |       2.92 |      0.3 ms |         1 |         1 |    No   |   INFO   | None (Clean Control)                        |
++---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+Diagnostic Details:
+
+● Query: scan_gap_unindexed
+  - Scan-to-Return Gap (QL003) [CRITICAL]: Scanned-to-returned ratio of 1220.0x exceeds critical threshold (100.0x).
+    Evidence: {'ratio': 1220.0, 'documents_scanned': 1220, 'documents_returned': 1, 'threshold': 100.0}
+```
+
+> [!NOTE]
+> **Page Size and RU Accounting**: Reported Request Units include Azure Cosmos DB's minimum per-request charge (approximately 2.9 RU per HTTP gateway request page). Consequently, cumulative RU consumption increases as `--max-item-count` shrinks because retrieving the same dataset requires more round-trip pages. Always compare workload profiling runs using identical page sizes (`--max-item-count`).
+>
+> **Partial Results Semantics**: When cumulative Request Units exceed `--ru-budget`, execution terminates immediately:
+>
+> - **RU Cost**: Displays cumulative RUs consumed prior to abortion, annotated with `(partial)`. This represents a valid lower bound on total query cost.
+> - **Fan-Out**: Displays `unknown` in terminal reports and emits `null` for `is_cross_partition` in `--json` output when no `partition_key` was specified (since incomplete execution cannot determine whether unvisited partitions would have been contacted), or `No` (`false`) if the query had a targeted `partition_key`.
+> - **Diagnostic Rules**: Structural and ratio rules `QL002` (Fan-Out) and `QL003` (Scan-to-Return Gap) are skipped on partial costs because partial execution cannot reliably assess full-workload partition coverage or scan-to-return ratios. `QL001` (High RU Cost) remains active because partial charge is a valid lower bound.
+> - **Findings**: Displays `n/a (partial)` if no findings (such as `QL001`) fired on the partial row.
+
+---
+
+## 📊 Machine-Readable Output (`--json`)
+
+QueryLens supports CI/CD automation and dashboard integration via the global `--json` flag. The structured output conforms to [`run-output-schema.json`](specs/001-cosmos-query-cost/contracts/run-output-schema.json).
+
+```json
+{
+  "timestamp": "2026-10-10T12:00:00Z",
+  "database": "querylens_dev",
+  "container": "unindexed_items",
+  "max_item_count": 100,
+  "total_queries": 1,
+  "completed_queries": 1,
+  "total_ru_consumed": 22.07,
+  "ru_budget": null,
+  "budget_exceeded": false,
+  "results": [
+    {
+      "cost": {
+        "query_id": "scan_gap_unindexed",
+        "query_text": "SELECT * FROM c WHERE c.unindexed_tag = 'rare_tag'",
+        "request_charge": 22.07,
+        "latency_ms": 2.4,
+        "documents_scanned": 1320,
+        "documents_returned": 1,
+        "is_cross_partition": true,
+        "is_partial": false,
+        "has_partition_key": false,
+        "error_message": null,
+        "activity_id": "d04084f3-...",
+        "index_metrics": null
+      },
+      "findings": [
+        {
+          "rule_id": "QL003",
+          "rule_name": "Scan-to-Return Gap",
+          "severity": "CRITICAL",
+          "summary": "Scanned-to-returned ratio of 1320.0x exceeds critical threshold (100.0x).",
+          "evidence": {
+            "ratio": 1320.0,
+            "documents_scanned": 1320,
+            "documents_returned": 1,
+            "threshold": 100.0
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+> [!NOTE]
+> **Nullable `is_cross_partition`**: `cost.is_cross_partition` is `bool | null`. When `--ru-budget` halts a query mid-stream without a targeted partition key, `is_cross_partition` emits `null` (corresponding directly to `unknown` in the terminal table). For completed queries or partitioned queries, it emits boolean `true` or `false`.
+
+---
+
+## 🚦 Exit Codes Contract
+
+QueryLens enforces deterministic exit codes designed for automated CI/CD pipeline orchestration:
+
+| Exit Code | Classification | Trigger Condition |
+| :---: | :--- | :--- |
+| **`0`** | **Success** | All queries executed successfully without budget exhaustion, and all findings are below `--fail-on` threshold. |
+| **`1`** | **Validation / Usage / Query Error** | CLI usage errors (unknown option, missing argument), invalid YAML, invalid partition key format, or one or more queries failed execution (e.g. HTTP 400 syntax error). |
+| **`2`** | **Budget Exceeded** | Cumulative Request Units exceeded `--ru-budget`. Execution aborted mid-query; partial results returned. |
+| **`3`** | **Connection Error** | Network unreachable, DNS resolution error, or target database/container not found (HTTP 404). |
+| **`4`** | **Diagnostic Gate Breached** | At least one diagnostic finding met or exceeded `--fail-on <severity>`. |
+| **`5`** | **Authentication / Authorization Failure** | Invalid credentials, expired token, missing `Cosmos DB Built-in Data Reader` role, or HTTP 401/403. |
+
+### Exit Code Precedence
+
+When multiple conditions occur during a workload run, exit codes resolve by strict precedence:
+
+1. **`2` (Budget Exceeded)** — Safety circuit-breaker halts execution; results are partial.
+2. **`4` (Diagnostic Gate Breached)** — Quality gate failure evaluated across completed queries.
+3. **`1` (Query Error / Validation)** — Query syntax failure or invalid configuration.
+4. **`0` (Success)** — Clean execution with no gates breached.
+*(Connection `3` and authentication `5` errors terminate immediately when encountered).*
+
+---
+
+## 🛡️ Security & Privacy
+
+QueryLens is built with security-first invariants:
+
+1. **Entra ID Passwordless Authentication**: Prioritizes `DefaultAzureCredential`. Master key authentication is strictly restricted to the local Cosmos DB emulator (`localhost` / `127.0.0.1`).
+2. **Least Privilege**: Only requires the Azure Cosmos DB built-in role `Cosmos DB Built-in Data Reader`.
+3. **Payload Discard**: Iterates over query results using `for _ in page: pass`, dropping item bodies immediately. QueryLens extracts only metadata headers (`x-ms-request-charge`, `x-ms-documentdb-query-metrics`, `x-ms-cosmos-index-utilization`).
+
+---
+
+## 🧪 Local Development & Testing
+
+```bash
+# Clone the repository
+git clone https://github.com/mwalczyk81/querylens.git
+cd querylens
+
+# Synchronize virtual environment with uv
+uv sync
+
+# Run full test suite with coverage gate (>= 85%)
+uv run pytest --cov=querylens --cov-fail-under=85
+
+# Run property tests with Hypothesis
+uv run pytest tests/unit/test_rules_property.py
+
+# Run linters and strict type checks
+uv run ruff check .
+uv run ruff format --check .
+uv run pyrefly check
+```
+
+### Running with Docker Cosmos DB Emulator
+
+```bash
+# Start emulator
+docker compose up -d cosmos-emulator
+
+# Run integration tests against emulator
+uv run pytest -m integration
+```
+
+---
+
+## 📄 License
+
+MIT © [Matt Walczyk](https://github.com/mwalczyk81)
