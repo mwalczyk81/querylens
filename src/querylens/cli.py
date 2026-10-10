@@ -28,6 +28,7 @@ from querylens.model import (
 )
 from querylens.report.console import render_console_report
 from querylens.report.json_out import serialize_summary_json
+from querylens.rules import evaluate_rules
 
 
 def get_adapter(settings: Settings) -> DatabaseAdapter:
@@ -181,12 +182,13 @@ def run(
     try:
         for cost in adapter.collect(workload):
             total_ru += cost.request_charge
-            # Diagnostic rules integration will populate findings here
-            results.append(QueryResultSummary(cost=cost, findings=[]))
+            findings = evaluate_rules(cost, settings)
+            results.append(QueryResultSummary(cost=cost, findings=findings))
     except BudgetExceededError as exc:
         budget_exceeded = True
         total_ru = exc.cumulative_ru
-        results.append(QueryResultSummary(cost=exc.partial_cost, findings=[]))
+        findings = evaluate_rules(exc.partial_cost, settings)
+        results.append(QueryResultSummary(cost=exc.partial_cost, findings=findings))
     except ClientAuthenticationError as exc:
         click.echo(f"Authentication failure: {exc}", err=True)
         sys.exit(5)

@@ -73,17 +73,17 @@
 **Independent Test**: Run queries exhibiting anti-patterns; verify diagnostic findings and metric evidence in console table and JSON; verify `--fail-on <severity>` returns exit code 4 when findings meet/exceed severity.
 
 ### Tests for User Story 2 (Test-First)
-- [ ] T018 [P] [US2] Write unit tests for rule functions in `tests/unit/test_rules.py` verifying detection logic and metric evidence for `high_ru_cost`, `cross_partition_fanout`, and `scan_to_return_gap` (verify tests fail before rule implementation).
-- [ ] T019 [P] [US2] Write property-based tests using `hypothesis` in `tests/unit/test_rules_property.py` verifying rule invariants across arbitrary generated `QueryCost` values (no crashes, severity monotonicity, valid evidence keys).
-- [ ] T020 [P] [US2] Write test-first unit tests for `--fail-on <severity>` in `tests/unit/test_cli_fail_on.py` verifying exit code `4` when findings are at or above specified severity (`critical`, `high`, `medium`), and exit code `0` when below or when `--fail-on` is off.
+- [x] T018 [P] [US2] Write unit tests for rule functions in `tests/unit/test_rules.py` verifying detection logic and metric evidence for `high_ru_cost`, `cross_partition_fanout`, and `scan_to_return_gap` (verify tests fail before rule implementation).
+- [x] T019 [P] [US2] Write property-based tests using `hypothesis` in `tests/unit/test_rules_property.py` verifying rule invariants across arbitrary generated `QueryCost` values (no crashes, severity monotonicity, valid evidence keys).
+- [x] T020 [P] [US2] Write test-first unit tests for `--fail-on <severity>` in `tests/unit/test_cli_fail_on.py` verifying exit code `4` when findings are at or above specified severity (`critical`, `high`, `medium`), and exit code `0` when below or when `--fail-on` is off.
 
 ### Implementation for User Story 2
-- [ ] T021 [P] [US2] Implement `rule_high_ru_cost` in `src/querylens/rules/high_ru.py` flagging `HIGH` severity above `high_ru_warning` and `CRITICAL` severity above `high_ru_critical`.
-- [ ] T022 [P] [US2] Implement `rule_cross_partition_fanout` in `src/querylens/rules/fanout.py` flagging `MEDIUM` severity when `is_cross_partition` is `True`.
-- [ ] T023 [P] [US2] Implement `rule_scan_to_return_gap` in `src/querylens/rules/scan_gap.py` flagging `HIGH` severity above `scan_gap_ratio_warning` (default 10x), `CRITICAL` severity above `scan_gap_ratio_critical` (default 100x), and `CRITICAL` severity for zero returned with `>= 1000` scanned.
-- [ ] T024 [US2] Implement rule registry and evaluation runner in `src/querylens/rules/registry.py` with signature `evaluate_rules(cost: QueryCost, settings: Settings) -> list[Finding]`.
-- [ ] T025 [US2] Integrate diagnostic findings into Rich table rendering in `src/querylens/report/console.py` displaying color-coded findings tags (`[CRIT]`, `[HIGH]`, `[MED]`) and metric evidence panels.
-- [ ] T026 [US2] Wire rule evaluation into `src/querylens/cli.py` and enforce `--fail-on <severity>` exit code `4` gating when findings reach or exceed the threshold.
+- [x] T021 [P] [US2] Implement `rule_high_ru_cost` in `src/querylens/rules/high_ru.py` flagging `HIGH` severity above `high_ru_warning` and `CRITICAL` severity above `high_ru_critical`.
+- [x] T022 [P] [US2] Implement `rule_cross_partition_fanout` in `src/querylens/rules/fanout.py` flagging `MEDIUM` severity when `is_cross_partition` is `True`.
+- [x] T023 [P] [US2] Implement `rule_scan_to_return_gap` in `src/querylens/rules/scan_gap.py` flagging `HIGH` severity above `scan_gap_ratio_warning` (default 10x), `CRITICAL` severity above `scan_gap_ratio_critical` (default 100x), and `CRITICAL` severity for zero returned with `>= 1000` scanned.
+- [x] T024 [US2] Implement rule registry and evaluation runner in `src/querylens/rules/registry.py` with signature `evaluate_rules(cost: QueryCost, settings: Settings) -> list[Finding]`.
+- [x] T025 [US2] Integrate diagnostic findings into Rich table rendering in `src/querylens/report/console.py` displaying color-coded findings tags (`[CRIT]`, `[HIGH]`, `[MED]`) and metric evidence panels.
+- [x] T026 [US2] Wire rule evaluation into `src/querylens/cli.py` and enforce `--fail-on <severity>` exit code `4` gating when findings reach or exceed the threshold.
 
 **Checkpoint**: User Stories 1 and 2 operate together.
 
