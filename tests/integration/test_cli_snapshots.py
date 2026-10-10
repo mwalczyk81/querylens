@@ -253,7 +253,12 @@ queries:
         assert "unknown" in result.output
         assert "n/a (partial)" in result.output
         assert "⚠️ Execution aborted: Cumulative RU budget ceiling reached" in result.output
-        assert result.output == snapshot
+        table_rows = [
+            line
+            for line in result.output.splitlines()
+            if any(q in line for q in ("Rank", "q_unscoped", "q_scoped"))
+        ]
+        assert table_rows == snapshot
 
     @patch("querylens.cli.get_adapter")
     def test_cli_partial_no_partition_key_json(

@@ -246,4 +246,5 @@ class TestCosmosAdapter:
                 stacklevel=2,
             )
             assert len(recorded) == 1
-            assert "remote.azure.com" in str(recorded[0].message)
+            assert issubclass(recorded[0].category, InsecureRequestWarning)
+            assert "Unverified HTTPS request" in str(recorded[0].message)

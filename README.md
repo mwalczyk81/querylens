@@ -83,9 +83,9 @@ Diagnostic Details:
 
 > [!NOTE]
 > **Page Size and RU Accounting**: Reported Request Units include Azure Cosmos DB's minimum per-request charge (approximately 2.9 RU per HTTP gateway request page). Consequently, cumulative RU consumption increases as `--max-item-count` shrinks because retrieving the same dataset requires more round-trip pages. Always compare workload profiling runs using identical page sizes (`--max-item-count`).
-
-> [!NOTE]
+>
 > **Partial Results Semantics**: When cumulative Request Units exceed `--ru-budget`, execution terminates immediately:
+>
 > - **RU Cost**: Displays cumulative RUs consumed prior to abortion, annotated with `(partial)`. This represents a valid lower bound on total query cost.
 > - **Fan-Out**: Displays `unknown` in terminal reports and emits `null` for `is_cross_partition` in `--json` output when no `partition_key` was specified (since incomplete execution cannot determine whether unvisited partitions would have been contacted), or `No` (`false`) if the query had a targeted `partition_key`.
 > - **Diagnostic Rules**: Structural and ratio rules `QL002` (Fan-Out) and `QL003` (Scan-to-Return Gap) are skipped on partial costs because partial execution cannot reliably assess full-workload partition coverage or scan-to-return ratios. `QL001` (High RU Cost) remains active because partial charge is a valid lower bound.
@@ -162,7 +162,9 @@ QueryLens enforces deterministic exit codes designed for automated CI/CD pipelin
 | **`5`** | **Authentication / Authorization Failure** | Invalid credentials, expired token, missing `Cosmos DB Built-in Data Reader` role, or HTTP 401/403. |
 
 ### Exit Code Precedence
+
 When multiple conditions occur during a workload run, exit codes resolve by strict precedence:
+
 1. **`2` (Budget Exceeded)** — Safety circuit-breaker halts execution; results are partial.
 2. **`4` (Diagnostic Gate Breached)** — Quality gate failure evaluated across completed queries.
 3. **`1` (Query Error / Validation)** — Query syntax failure or invalid configuration.
