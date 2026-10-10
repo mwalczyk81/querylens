@@ -2,14 +2,15 @@
 
 import logging
 import sys
+from collections.abc import MutableMapping
 from typing import Any
 
 import structlog
 
 
 def drop_payload_keys(
-    _logger: Any, _method_name: str, event_dict: dict[str, Any]
-) -> dict[str, Any]:
+    _logger: Any, _method_name: str, event_dict: MutableMapping[str, Any]
+) -> MutableMapping[str, Any]:
     """Safety filter ensuring sensitive payload dictionaries are never logged.
 
     Args:

@@ -56,12 +56,14 @@ class TestCosmosAdapterEmulatorIntegration:
 
         # Seed sample documents
         for i in range(10):
-            container.upsert_item({
-                "id": f"item-{i}",
-                "category": "electronics" if i % 2 == 0 else "apparel",
-                "price": 10.0 * i,
-                "active": True,
-            })
+            container.upsert_item(
+                {
+                    "id": f"item-{i}",
+                    "category": "electronics" if i % 2 == 0 else "apparel",
+                    "price": 10.0 * i,
+                    "active": True,
+                }
+            )
 
     def test_collect_against_real_emulator(self, setup_emulator_container: None) -> None:
         """Execute queries and capture real RU metrics from emulator."""

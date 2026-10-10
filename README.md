@@ -109,10 +109,10 @@ git clone https://github.com/mwalczyk81/querylens.git
 cd querylens
 
 # Synchronize virtual environment with uv
-uv sync --extra dev
+uv sync
 
 # Run full test suite with coverage gate (>= 85%)
-uv run pytest --cov=src/querylens --cov-fail-under=85
+uv run pytest --cov=querylens --cov-fail-under=85
 
 # Run property tests with Hypothesis
 uv run pytest tests/unit/test_rules_property.py

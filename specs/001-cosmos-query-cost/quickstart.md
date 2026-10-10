@@ -23,7 +23,7 @@ Install project dependencies in a local virtual environment:
 cd querylens
 
 # Synchronize dependencies with uv
-uv sync --all-extras
+uv sync
 
 # Activate virtual environment
 .venv\Scripts\activate
@@ -148,7 +148,7 @@ Run full test suite and verify coverage:
 
 ```powershell
 # Unit & Property-based tests
-uv run pytest tests/unit --cov=src/querylens --cov-report=term-missing --cov-fail-under=85
+uv run pytest tests/unit --cov=querylens --cov-report=term-missing --cov-fail-under=85
 
 # Linting and formatting checks
 uv run ruff check
