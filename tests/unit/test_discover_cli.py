@@ -1,6 +1,7 @@
 """Unit tests for querylens discover CLI options, exit codes, and print-kql."""
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
@@ -311,3 +312,74 @@ def test_cli_check_json_success(mock_get_client: MagicMock) -> None:
     assert "QueryRuntimeStatistics" in data["categories_detected"]
     assert data["row_counts"]["DataPlaneRequests"] == 1500
     assert data["field_coverage"]["querytext_s"] == 1.0
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_discover_empty_results_console(mock_get_client: MagicMock) -> None:
+    """Verify empty result set in console mode exits 0 with clean informational message."""
+    mock_client = MagicMock()
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([make_sample_shapes_table(shapes=[])]),
+        make_logs_query_result(
+            [
+                make_sample_totals_table(
+                    window_total_ru=0.0,
+                    attributed_total_ru=0.0,
+                    total_executions=0,
+                )
+            ]
+        ),
+    ]
+    mock_get_client.return_value = mock_client
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc"],
+    )
+    assert result.exit_code == 0
+    assert "No query shapes discovered in the specified window matching filters." in result.output
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_discover_empty_results_json(mock_get_client: MagicMock) -> None:
+    """Verify empty result set with --json exits 0 and outputs valid empty JSON."""
+    schema_path = (
+        Path(__file__).parents[2]
+        / "specs"
+        / "002-query-cost-discovery"
+        / "contracts"
+        / "discover-output-schema.json"
+    )
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+
+    mock_client = MagicMock()
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([make_sample_shapes_table(shapes=[])]),
+        make_logs_query_result(
+            [
+                make_sample_totals_table(
+                    window_total_ru=0.0,
+                    attributed_total_ru=0.0,
+                    total_executions=0,
+                )
+            ]
+        ),
+    ]
+    mock_get_client.return_value = mock_client
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc", "--json"],
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["total_ru"] == 0.0
+    assert data["attributed_total_ru"] == 0.0
+    assert data["discovered_query_count"] == 0
+    assert data["results"] == []
+
+    # Validate against schema
+    for field in schema["required"]:
+        assert field in data
