@@ -106,7 +106,32 @@ To detect parser crashes, unhandled exceptions, and invariant regressions, Query
   - `fuzz_discovery_options.py`: Fuzzes `DiscoveryOptions` Pydantic validators with fuzzed provider streams.
 - **Seed Corpora**: Valid seed inputs are packaged in `.clusterfuzzlite/*_seed_corpus.zip` to accelerate coverage exploration.
 - **CI Fuzzing Workflow (`.github/workflows/cflite_pr.yml`)**: Runs on pull requests targeting `main` in `code-change` mode with a fast 30-second time budget.
-- **Environment Isolation**: Atheris is a Linux-native engine requiring C runtime instrumentation. It is deliberately **not** included in `pyproject.toml` or developer virtual environments to ensure Windows and macOS developers can install and run tests without C toolchain friction. Atheris is present only in the fuzz builder image (`gcr.io/oss-fuzz-base/base-builder-python`).
+- **Environment Isolation & Atheris Pinning**: Atheris is a Linux-native engine requiring C runtime instrumentation linked against Clang's libFuzzer. It is deliberately **not** included in `pyproject.toml` or developer virtual environments to ensure Windows and macOS developers can install and run tests without C toolchain friction. Atheris is present only in the base builder image (`gcr.io/oss-fuzz-base/base-builder-python`), which is pinned by immutable SHA256 digest in `.clusterfuzzlite/Dockerfile`.
+
+#### Pinned Build Inputs & Refreshing Pins
+
+ClusterFuzzLite build inputs are pinned to prevent supply chain tampering and ensure reproducible fuzz builds:
+
+1. **Docker Base Image**: The base image in `.clusterfuzzlite/Dockerfile` is pinned by SHA256 digest with the tag tracked in a comment:
+
+   ```dockerfile
+   # tag: latest
+   FROM gcr.io/oss-fuzz-base/base-builder-python@sha256:756c7196c97d62a66c448e70bdeecce400e68ae2ee96d4393cb38d58ffca18d2
+   ```
+
+   To look up and refresh the latest digest:
+
+   ```bash
+   docker buildx imagetools inspect gcr.io/oss-fuzz-base/base-builder-python:latest
+   ```
+
+2. **Python Dependencies & Hashes**: Runtime dependencies and the `hatchling` build backend are hash-pinned in `.clusterfuzzlite/requirements.txt` and verified via `pip install --require-hashes`. To refresh dependencies or update constraints, edit `.clusterfuzzlite/requirements.in` and recompile:
+
+   ```bash
+   uv pip compile .clusterfuzzlite/requirements.in --python-version 3.11 --generate-hashes --output-file .clusterfuzzlite/requirements.txt
+   ```
+
+3. **Dependabot Updates**: Dependabot monitors `/.clusterfuzzlite` weekly for both Docker base image updates (`docker` ecosystem) and Python dependency updates (`pip` ecosystem), grouping minor and patch updates under the `chore(fuzz)` commit prefix.
 
 #### Running Fuzz Targets Locally
 
