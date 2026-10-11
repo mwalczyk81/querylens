@@ -295,6 +295,34 @@ We track repository supply chain security using the [OpenSSF Scorecard](https://
 
 ---
 
+## 🔐 Verify a Release
+
+Release artifacts (wheels and source distributions) are cryptographically signed using [Sigstore](https://www.sigstore.dev/) and accompanied by build provenance attested by GitHub Actions.
+
+### Verify with Sigstore
+
+You can verify that a downloaded package was built and signed by this repository's release workflow using the official `sigstore` CLI:
+
+```bash
+# Install the sigstore CLI
+pip install sigstore
+
+# Verify wheel signature bundle
+sigstore verify github querylens-0.2.0-py3-none-any.whl \
+  --bundle querylens-0.2.0-py3-none-any.whl.sigstore \
+  --cert-identity-regexp "^https://github.com/mwalczyk81/querylens/.github/workflows/release.yml@"
+```
+
+### Verify with GitHub CLI
+
+You can also verify build provenance attestations directly using the GitHub CLI:
+
+```bash
+gh attestation verify querylens-0.2.0-py3-none-any.whl --repo mwalczyk81/querylens
+```
+
+---
+
 ## 🧪 Local Development & Testing
 
 ```bash
