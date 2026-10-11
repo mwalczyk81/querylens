@@ -1,6 +1,9 @@
 """CLI command handler for querylens discover."""
 
 import sys
+from datetime import timedelta
+from typing import Any
+from uuid import UUID
 
 import click
 from azure.core.exceptions import (
@@ -19,10 +22,12 @@ from querylens.discovery.kql import (
     build_totals_query,
 )
 from querylens.discovery.models import (
+    ACCOUNT_NAME_PATTERN,
     DiscoveryOptions,
     DiscoveryValidationError,
     InternalConsistencyError,
     TelemetryMisconfigurationError,
+    parse_duration_string,
 )
 from querylens.discovery.service import run_discovery
 from querylens.report.discover_console import (
@@ -31,6 +36,50 @@ from querylens.report.discover_console import (
 from querylens.report.discover_json import (
     serialize_discovery_json,
 )
+
+# Align Click usage errors with QueryLens exit code 1 (Validation / Usage Error)
+click.exceptions.UsageError.exit_code = 1
+
+
+def _validate_workspace_id(ctx: click.Context, param: click.Parameter, value: Any) -> UUID:
+    """Validate that workspace-id is a valid RFC 4122 UUID."""
+    if value is None:
+        raise click.BadParameter("Workspace ID is required.", ctx=ctx, param=param)
+    val = str(value).strip()
+    try:
+        return UUID(val)
+    except (ValueError, AttributeError) as err:
+        raise click.BadParameter(
+            f"Invalid workspace ID '{val}'. Must be a valid RFC 4122 UUID.",
+            ctx=ctx,
+            param=param,
+        ) from err
+
+
+def _validate_account(ctx: click.Context, param: click.Parameter, value: Any) -> str | None:
+    """Validate that account name matches Cosmos DB account naming rules."""
+    if value is None:
+        return None
+    val = str(value).strip()
+    if not val:
+        return None
+    if not ACCOUNT_NAME_PATTERN.match(val):
+        raise click.BadParameter(
+            f"Invalid account filter '{val}'. Must match Cosmos DB account naming pattern.",
+            ctx=ctx,
+            param=param,
+        )
+    return val
+
+
+def _validate_time_window(ctx: click.Context, param: click.Parameter, value: Any) -> timedelta:
+    """Validate and parse time window into a bounded timedelta."""
+    if value is None:
+        return timedelta(hours=24)
+    try:
+        return parse_duration_string(value)
+    except DiscoveryValidationError as err:
+        raise click.BadParameter(str(err), ctx=ctx, param=param) from err
 
 
 def get_logs_client() -> LogsQueryClient:
@@ -45,6 +94,7 @@ def get_logs_client() -> LogsQueryClient:
     "--workspace-id",
     envvar="QUERYLENS_WORKSPACE_ID",
     required=True,
+    callback=_validate_workspace_id,
     help="Target Azure Log Analytics workspace GUID (RFC 4122 UUID).",
 )
 @click.option(
@@ -52,12 +102,14 @@ def get_logs_client() -> LogsQueryClient:
     "--account",
     "account_filter",
     default=None,
+    callback=_validate_account,
     help="Optional Cosmos DB account name to filter diagnostic records.",
 )
 @click.option(
     "-t",
     "--time-window",
     default="24h",
+    callback=_validate_time_window,
     help="Lookback time window duration (e.g. '1h', '24h', '7d'). Default: 24h.",
 )
 @click.option(
@@ -65,14 +117,14 @@ def get_logs_client() -> LogsQueryClient:
     "--top",
     "top_n",
     default=20,
-    type=int,
+    type=click.IntRange(1, 100),
     help="Maximum number of query shapes to return (1-100). Default: 20.",
 )
 @click.option(
     "--timeout",
     "server_timeout_seconds",
     default=180,
-    type=int,
+    type=click.IntRange(10, 600),
     help="Azure Monitor query server timeout in seconds (10-600). Default: 180.",
 )
 @click.option(
@@ -102,9 +154,9 @@ def get_logs_client() -> LogsQueryClient:
     help="Output machine-readable JSON to stdout.",
 )
 def discover(
-    workspace_id: str,
+    workspace_id: UUID,
     account_filter: str | None,
-    time_window: str,
+    time_window: timedelta,
     top_n: int,
     server_timeout_seconds: int,
     print_kql: bool,
@@ -118,9 +170,9 @@ def discover(
     # Validate options
     try:
         options = DiscoveryOptions(
-            workspace_id=workspace_id,  # type: ignore[arg-type]
+            workspace_id=workspace_id,
             account_filter=account_filter,
-            time_window=time_window,  # type: ignore[arg-type]
+            time_window=time_window,
             top_n=top_n,
             server_timeout_seconds=server_timeout_seconds,
             show_text=show_text,

@@ -109,15 +109,16 @@ def test_cli_print_kql_check_with_account_filter() -> None:
 
 
 def test_cli_invalid_workspace_id() -> None:
-    """Verify CLI exits 1 on invalid workspace ID."""
+    """Verify CLI exits 1 on invalid workspace ID with clean message and no pydantic dump."""
     runner = CliRunner()
     result = runner.invoke(cli, ["discover", "--workspace-id", "not-a-uuid"])
     assert result.exit_code == 1
     assert "Invalid workspace ID" in result.output
+    assert "ValidationError" not in result.output
 
 
 def test_cli_invalid_account_filter() -> None:
-    """Verify CLI exits 1 on invalid account filter."""
+    """Verify CLI exits 1 on invalid account filter with clean message and no pydantic dump."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -131,10 +132,11 @@ def test_cli_invalid_account_filter() -> None:
     )
     assert result.exit_code == 1
     assert "Invalid account filter" in result.output
+    assert "ValidationError" not in result.output
 
 
 def test_cli_invalid_time_window() -> None:
-    """Verify CLI exits 1 on invalid time window."""
+    """Verify CLI exits 1 on invalid time window with clean message and no pydantic dump."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -148,10 +150,11 @@ def test_cli_invalid_time_window() -> None:
     )
     assert result.exit_code == 1
     assert "Invalid time window" in result.output
+    assert "ValidationError" not in result.output
 
 
-def test_cli_invalid_top_n() -> None:
-    """Verify CLI exits 1 on invalid top_n."""
+def test_cli_invalid_top_n_below_min() -> None:
+    """Verify CLI exits 1 with range message when --top is below 1."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -160,10 +163,66 @@ def test_cli_invalid_top_n() -> None:
             "--workspace-id",
             "12345678-1234-1234-1234-123456789abc",
             "--top",
-            "200",
+            "0",
         ],
     )
     assert result.exit_code == 1
+    assert "0 is not in the range 1<=x<=100" in result.output
+    assert "ValidationError" not in result.output
+
+
+def test_cli_invalid_top_n_above_max() -> None:
+    """Verify CLI exits 1 with range message when --top is above 100."""
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "discover",
+            "--workspace-id",
+            "12345678-1234-1234-1234-123456789abc",
+            "--top",
+            "101",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "101 is not in the range 1<=x<=100" in result.output
+    assert "ValidationError" not in result.output
+
+
+def test_cli_invalid_timeout_below_min() -> None:
+    """Verify CLI exits 1 with range message when --timeout is below 10."""
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "discover",
+            "--workspace-id",
+            "12345678-1234-1234-1234-123456789abc",
+            "--timeout",
+            "5",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "5 is not in the range 10<=x<=600" in result.output
+    assert "ValidationError" not in result.output
+
+
+def test_cli_invalid_timeout_above_max() -> None:
+    """Verify CLI exits 1 with range message when --timeout is above 600."""
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "discover",
+            "--workspace-id",
+            "12345678-1234-1234-1234-123456789abc",
+            "--timeout",
+            "601",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "601 is not in the range 10<=x<=600" in result.output
+    assert "ValidationError" not in result.output
 
 
 @patch("querylens.discover_cli.get_logs_client")
