@@ -1,9 +1,10 @@
 """QueryLens Command Line Interface using Click."""
 
 import sys
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import click
 import yaml
@@ -15,7 +16,11 @@ from azure.cosmos.exceptions import (
 )
 from pydantic import ValidationError
 
-from querylens.adapters.cosmos import BudgetExceededError, CosmosAdapter
+from querylens.adapters.cosmos import (
+    BudgetExceededError,
+    CosmosAdapter,
+    extract_error_details,
+)
 from querylens.adapters.protocol import DatabaseAdapter
 from querylens.config import Settings
 from querylens.discover_cli import discover
@@ -46,6 +51,84 @@ def get_adapter(settings: Settings) -> DatabaseAdapter:
         DatabaseAdapter: Instantiated adapter conforming to protocol.
     """
     return CosmosAdapter(settings)
+
+
+def map_adapter_exception(exc: Exception) -> tuple[str, int]:
+    """Map adapter exceptions to user-facing error message and exit code.
+
+    Strips duplicated raw SDK banners, ActivityId, and stack traces, extracting concise messages.
+
+    Args:
+        exc: Exception caught during adapter instantiation or query collection.
+
+    Returns:
+        tuple[str, int]: (stderr_message, exit_code)
+    """
+    if isinstance(exc, ClientAuthenticationError):
+        clean_msg = str(getattr(exc, "message", None) or exc).splitlines()[0].strip()
+        return f"Authentication failure: {clean_msg}", 5
+
+    if isinstance(exc, CosmosHttpResponseError):
+        concise_msg, _ = extract_error_details(exc)
+        clean_text = (
+            concise_msg.removeprefix(f"HTTP {exc.status_code}: ")
+            if exc.status_code
+            else concise_msg
+        )
+        if exc.status_code == 403:
+            hint = (
+                "The identity needs the Cosmos DB Built-in Data Reader data-plane "
+                "role on this account (Azure control-plane roles do not grant data access)."
+            )
+            return (
+                f"Authentication / Authorization failure (HTTP 403): {clean_text}\n{hint}",
+                5,
+            )
+        if exc.status_code == 401:
+            return (
+                f"Authentication / Authorization failure (HTTP 401): {clean_text}",
+                5,
+            )
+        if exc.status_code == 404 or isinstance(exc, CosmosResourceNotFoundError):
+            return f"Connection error: Resource not found: {clean_text}", 3
+        if exc.status_code == 429:
+            return (
+                f"Rate limit exceeded (HTTP 429 RequestRateTooLarge): {clean_text}",
+                3,
+            )
+        if exc.status_code is not None and exc.status_code >= 500:
+            return f"Cosmos server error (HTTP {exc.status_code}): {clean_text}", 3
+        return f"Cosmos HTTP error (status {exc.status_code}): {clean_text}", 3
+
+    if isinstance(exc, (ServiceRequestError, CosmosClientTimeoutError)):
+        clean_msg = (
+            str(getattr(exc, "message", None) or exc)
+            .split("ActivityId:")[0]
+            .splitlines()[0]
+            .strip()
+        )
+        return f"Connection error: {clean_msg}", 3
+
+    clean_msg = str(getattr(exc, "message", None) or exc).splitlines()[0].strip()
+    return f"Error: {clean_msg}", 3
+
+
+def handle_adapter_exception(
+    exc: Exception,
+    *,
+    before_exit: Callable[[], None] | None = None,
+) -> NoReturn:
+    """Print mapped adapter exception to stderr and exit with the appropriate status code.
+
+    Args:
+        exc: Exception caught during adapter instantiation or execution.
+        before_exit: Optional callback invoked before exit if exit code is not 5.
+    """
+    msg, exit_code = map_adapter_exception(exc)
+    if before_exit and exit_code != 5:
+        before_exit()
+    click.echo(msg, err=True)
+    sys.exit(exit_code)
 
 
 @click.group()
@@ -185,6 +268,13 @@ def run(
     except ValueError as exc:
         click.echo(f"Error: Adapter initialization failed: {exc}", err=True)
         sys.exit(1)
+    except (
+        ClientAuthenticationError,
+        CosmosHttpResponseError,
+        ServiceRequestError,
+        CosmosClientTimeoutError,
+    ) as exc:
+        handle_adapter_exception(exc)
 
     # 6. Execute Workload
     start_time = datetime.now(UTC).isoformat()
@@ -221,38 +311,13 @@ def run(
         total_ru = exc.cumulative_ru
         findings = evaluate_rules(exc.partial_cost, settings)
         results.append(QueryResultSummary(cost=exc.partial_cost, findings=findings))
-    except ClientAuthenticationError as exc:
-        click.echo(f"Authentication failure: {exc}", err=True)
-        sys.exit(5)
-    except (CosmosResourceNotFoundError, ServiceRequestError, CosmosClientTimeoutError) as exc:
-        _render_partial_if_present()
-        click.echo(f"Connection error: {exc}", err=True)
-        sys.exit(3)
-    except CosmosHttpResponseError as exc:
-        if exc.status_code in (401, 403):
-            click.echo(
-                f"Authentication / Authorization failure (HTTP {exc.status_code}): {exc.message}",
-                err=True,
-            )
-            sys.exit(5)
-        _render_partial_if_present()
-        if exc.status_code == 404:
-            click.echo(f"Connection error: Resource not found: {exc.message}", err=True)
-            sys.exit(3)
-        if exc.status_code == 429:
-            click.echo(
-                f"Rate limit exceeded (HTTP 429 RequestRateTooLarge): {exc.message}",
-                err=True,
-            )
-            sys.exit(3)
-        if exc.status_code is not None and exc.status_code >= 500:
-            click.echo(
-                f"Cosmos server error (HTTP {exc.status_code}): {exc.message}",
-                err=True,
-            )
-            sys.exit(3)
-        click.echo(f"Cosmos HTTP error (status {exc.status_code}): {exc.message}", err=True)
-        sys.exit(3)
+    except (
+        ClientAuthenticationError,
+        CosmosHttpResponseError,
+        ServiceRequestError,
+        CosmosClientTimeoutError,
+    ) as exc:
+        handle_adapter_exception(exc, before_exit=_render_partial_if_present)
 
     summary = WorkloadRunSummary(
         timestamp=start_time,
