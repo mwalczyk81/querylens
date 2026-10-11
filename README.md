@@ -276,6 +276,25 @@ QueryLens is built with security-first invariants:
 
 ---
 
+## 🔍 Quality at a Glance
+
+QueryLens is tested and verified across three levels:
+
+- **Unit tests**: Deterministic verification of metrics parsers, domain models, CLI options, KQL query builders, and report formatters.
+- **Property-based tests**: Generative testing with Hypothesis verifying invariant boundaries and monotonic behavior across randomized input spaces.
+- **Integration tests**: End-to-end execution against a real Azure Cosmos DB Linux emulator in containerized CI environments.
+
+Every change triggers automated CI workflows enforcing strict code hygiene (Ruff formatting and linting), strict type checking (Pyrefly), security audits (`pip-audit`, Gitleaks secret detection, CodeQL static analysis), and an automated test coverage gate. Track live workflow runs on [GitHub Actions](https://github.com/mwalczyk81/querylens/actions) and test coverage on [Codecov](https://codecov.io/gh/mwalczyk81/querylens).
+
+### Security Posture
+
+We track repository supply chain security using the [OpenSSF Scorecard](https://securityscorecards.dev/viewer/?repo=github.com/mwalczyk81/querylens). Scorecard evaluates open-source projects against automated security criteria:
+
+- **Strong automated controls**: GitHub Actions pinned to immutable commit SHAs with version comments, minimal `GITHUB_TOKEN` permissions (`contents: read`), CodeQL static analysis (SAST), automated dependency updates via Dependabot, dependency vulnerability scanning with `pip-audit`, secret scanning via Gitleaks, and a published security policy ([SECURITY.md](SECURITY.md)).
+- **Structural characteristics of a young solo project**: Some Scorecard checks are structurally low for early-stage single-maintainer repositories rather than reflecting security gaps. Specifically, **Code-Review** requires pull requests to be approved by a second reviewer, **Contributors** requires maintainers from multiple distinct organizations, and **Maintained** requires commit activity spanning at least 90 days.
+
+---
+
 ## 🧪 Local Development & Testing
 
 ```bash
