@@ -58,7 +58,7 @@
 - [x] T018 [US1] Implement discovery JSON serialization in src/querylens/report/discover_json.py conforming to specs/002-query-cost-discovery/contracts/discover-output-schema.json without requiring top_callers
 - [x] T019 [US1] Implement CLI command discover in src/querylens/discover_cli.py with Click options (--workspace-id/-w, --account/-a, --time-window/-t, --top/-n, --timeout, --print-kql, --json), parameter validation, exit code mapping (0, 1, 3, 5), and wiring of `--print-kql`
 - [x] T020 [US1] Register discover command on main Click group cli in src/querylens/cli.py
-- [ ] T021 [US1] Execute blocking manual qualification gate per docs/manual-testing.md: paste both --print-kql queries into the Azure portal Logs editor, run querylens discover --workspace-id <uuid> against a real workspace (non-prod access, counts only), and fix any KQL errors BEFORE starting US2/US3
+- [x] T021 [US1] Execute blocking manual qualification gate per docs/manual-testing.md: paste both --print-kql queries into the Azure portal Logs editor, run querylens discover --workspace-id <uuid> against a real workspace (non-prod access, counts only), and fix any KQL errors BEFORE starting US2/US3 (Completed: live gate passed on real workspace at commit `82c992a`)
 
 **Checkpoint**: At this point, User Story 1 (MVP) is fully functional and validated live on Azure before starting subsequent stories.
 
@@ -84,7 +84,7 @@
 - [x] T026 [US2] Implement run_preflight_check in src/querylens/discovery/service.py accepting injected LogsQueryClient, parsing raw diagnostic results into PreflightCheckReport, masking workspace ID to last 4 characters, computing column coverage ratios, and flagging retention and missing category warnings
 - [x] T027 [US2] Implement preflight check Rich console renderer in src/querylens/report/discover_console.py formatting category record counts, time boundaries, field coverage percentages, and authentication token breakdown
 - [x] T028 [US2] Wire `--check` mode into src/querylens/discover_cli.py supporting both Rich console report and `--json` serialization matching specs/002-query-cost-discovery/contracts/check-output-schema.json
-- [ ] T029 [US2] Execute manual preflight qualification gate per docs/manual-testing.md: run querylens discover --workspace-id <uuid> --check against a real workspace (counts and percentages only) and fix any preflight KQL errors before starting US3
+- [x] T029 [US2] Execute manual preflight qualification gate per docs/manual-testing.md: run querylens discover --workspace-id <uuid> --check against a real workspace (counts and percentages only) and fix any preflight KQL errors before starting US3 (Completed: live gate passed on real workspace at commit `82c992a`)
 
 **Checkpoint**: At this point, User Stories 1 AND 2 are both verified offline and qualified on live Azure before caller attribution work begins.
 
