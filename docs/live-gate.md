@@ -4,6 +4,8 @@ This prompt is pasted into Claude Code after the user has signed in to Azure (e.
 
 It instructs Claude Code to run non-destructive, read-only validation against a real, non-production Azure Log Analytics workspace containing Cosmos DB diagnostic logs.
 
+**Regression Fixture Policy**: Every live-gate finding must produce a regression fixture mirroring the REAL server result shape, with synthetic values.
+
 ```text
 You are validating querylens on the checked-out branch against a real, NON-PRODUCTION Azure Log Analytics workspace that contains Cosmos DB diagnostic logs. I have already signed in to Azure myself (Britive / az login). querylens is read-only.
 

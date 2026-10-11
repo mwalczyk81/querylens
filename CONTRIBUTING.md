@@ -54,6 +54,10 @@ Type checking is performed using [Pyrefly](https://github.com/facebook/pyrefly) 
 uv run pyrefly check
 ```
 
+### Synthetic Regression Fixtures Policy
+
+When qualifying features against real Azure infrastructure (such as Log Analytics workspaces via the live gate in `docs/live-gate.md`), every finding or server discrepancy must produce a regression fixture in `tests/fixtures/synthetic_logs.py` mirroring the **real server result shape**, populated with synthetic values. Live-gate findings are permanently codified into offline regression tests.
+
 ### Regenerating README Assets
 
 The terminal SVG demo in the README (`docs/assets/querylens-demo.svg`) is generated from deterministic sample run metrics (`docs/assets/sample-run.json`).
