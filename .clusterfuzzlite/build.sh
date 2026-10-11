@@ -1,7 +1,8 @@
 #!/bin/bash -eu
 
-# Install querylens package and dependencies into Python environment
-pip3 install .
+# Install querylens package and dependencies into Python environment,
+# ignoring Requires-Python constraint since base-builder-python runs Python 3.11
+pip3 install --ignore-requires-python .
 
 # Compile python fuzz targets into $OUT
 for fuzzer in $(find .clusterfuzzlite -maxdepth 1 -name 'fuzz_*.py'); do
