@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkloadDiscoverySummary",
+  "type": "object",
+  "required": [
+    "window_start",
+    "window_end",
+    "total_ru",
+    "attributed_total_ru",
+    "unattributed_ru",
+    "unattributed_ru_pct",
+    "discovered_query_count",
+    "results",
+    "retention_warning",
+    "masked_workspace_id"
+  ],
+  "properties": {
+    "window_start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "window_end": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "total_ru": {
+      "type": "number",
+      "minimum": 0
+    },
+    "attributed_total_ru": {
+      "type": "number",
+      "minimum": 0
+    },
+    "unattributed_ru": {
+      "type": "number",
+      "minimum": 0
+    },
+    "unattributed_ru_pct": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "discovered_query_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "retention_warning": {
+      "type": "boolean"
+    },
+    "masked_workspace_id": {
+      "type": "string"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "database",
+          "container",
+          "shape_id",
+          "execution_count",
+          "total_ru",
+          "avg_ru",
+          "max_ru",
+          "ru_share_pct",
+          "avg_returned_rows",
+          "ru_per_returned_row",
+          "throttled_count"
+        ],
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name, or '(unknown)' if diagnostic telemetry lacked database identifier."
+          },
+          "container": {
+            "type": "string",
+            "description": "Container name, or '(unknown)' if diagnostic telemetry lacked container identifier."
+          },
+          "shape_id": {
+            "type": "string"
+          },
+          "sample_query_text": {
+            "type": "string"
+          },
+          "execution_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total_ru": {
+            "type": "number",
+            "minimum": 0
+          },
+          "avg_ru": {
+            "type": "number",
+            "minimum": 0
+          },
+          "max_ru": {
+            "type": "number",
+            "minimum": 0
+          },
+          "ru_share_pct": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "avg_returned_rows": {
+            "type": "number",
+            "minimum": 0
+          },
+          "ru_per_returned_row": {
+            "type": ["number", "null"],
+            "minimum": 0
+          },
+          "throttled_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "top_callers": {
+            "type": "array",
+            "maxItems": 3,
+            "description": "Optional list of up to 3 top callers ranked by RU share.",
+            "items": {
+              "type": "object",
+              "required": [
+                "identifier",
+                "ru_share_pct",
+                "identifier_type"
+              ],
+              "properties": {
+                "identifier": {
+                  "type": "string"
+                },
+                "ru_share_pct": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100.05
+                },
+                "identifier_type": {
+                  "type": "string",
+                  "enum": ["aad_principal", "client_ip"]
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

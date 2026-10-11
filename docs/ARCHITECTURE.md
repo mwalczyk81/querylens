@@ -33,22 +33,45 @@ class DatabaseAdapter(Protocol):
 
 ---
 
+## Log Analytics Discovery Architecture (`querylens discover`)
+
+The discovery engine queries Azure Monitor Log Analytics to uncover top query shapes directly from historical diagnostic logs:
+
+```mermaid
+flowchart TD
+    CLI["Click CLI (querylens discover)"] --> OPTIONS["DiscoveryOptions Validation"]
+    OPTIONS --> BUILDER["KQL Query Builder (kql.py)"]
+    BUILDER --> KQL["Shapes Query & Totals Query"]
+    KQL --> SDK["LogsQueryClient (azure-monitor-query)"]
+    SDK --> LA["Azure Monitor Log Analytics (AzureDiagnostics)"]
+    LA --> SERVICE["Discovery Service (service.py)"]
+    SERVICE --> GUARD{"Silent-Zero Guard"}
+    GUARD -- "Zero Attributed RU" --> ERR["Exit 1 (Misconfiguration)"]
+    GUARD -- "Valid Attributed RU" --> MODELS["DiscoveredQueryShape & Summary"]
+    MODELS --> CONSOLE["Rich Console Table"]
+    MODELS --> JSON["Structured JSON Output"]
+```
+
+Unlike `querylens run`, `querylens discover` queries Azure Monitor management telemetry using the official `azure-monitor-query` SDK and `DefaultAzureCredential` (requiring `Log Analytics Reader`). It executes server-side KQL aggregation without reading from the Cosmos DB data plane, bypassing the `DatabaseAdapter` protocol seam entirely.
+
+---
+
 ## Exit-Code Decision Hierarchy
 
 QueryLens enforces a deterministic exit-code precedence hierarchy for reliable orchestration in CI/CD pipelines. Fatal environment and authentication failures abort immediately, while completed runs render their full reports before evaluating exit criteria:
 
 ```mermaid
 flowchart TD
-    START["Query Execution Start"] --> RUNTIME{"Fatal Runtime Error?"}
+    START["Execution Start"] --> RUNTIME{"Fatal Runtime Error?"}
     RUNTIME -- "Auth or RBAC Failure" --> EXIT5["Exit 5: Auth Failure"]
     RUNTIME -- "Connection Error" --> EXIT3["Exit 3: Connection Failure"]
-    RUNTIME -- "No Runtime Abortion" --> COMPLETE["Render Profile Report"]
+    RUNTIME -- "No Runtime Abortion" --> COMPLETE["Render Report"]
     COMPLETE --> BUDGET{"Budget Exceeded?"}
     BUDGET -- "Yes" --> EXIT2["Exit 2: Budget Exceeded"]
     BUDGET -- "No" --> GATE{"--fail-on Gate Breached?"}
     GATE -- "Yes" --> EXIT4["Exit 4: Gate Breached"]
-    GATE -- "No" --> QUERYERR{"Any Query Error?"}
-    QUERYERR -- "Yes" --> EXIT1["Exit 1: Query Error"]
+    GATE -- "No" --> QUERYERR{"Query / Validation Error?"}
+    QUERYERR -- "Yes" --> EXIT1["Exit 1: Error"]
     QUERYERR -- "No" --> EXIT0["Exit 0: Success"]
 ```
 
@@ -56,12 +79,12 @@ flowchart TD
 
 | Exit Code | Reason | Timing |
 | --------- | ------ | ------ |
-| **0** | Success: All queries executed cleanly and no diagnostic gates were breached. | After report |
-| **1** | Query or Validation Error: Malformed YAML, invalid CLI parameters, or query syntax errors. | After report |
-| **2** | Budget Exceeded: Cumulative Request Units exceeded `--ru-budget` ceiling. | After report |
-| **3** | Connection Failure: Target endpoint unreachable or network dropped mid-run. | Immediate abort |
-| **4** | Diagnostic Gate Breached: Findings met or exceeded `--fail-on` threshold. | After report |
-| **5** | Authentication Failure: Missing credentials or permission denied. | Immediate abort |
+| **0** | Success: Workload profile succeeded cleanly, or discovery completed with valid shapes or clean empty window. | After report |
+| **1** | Query or Validation Error: Malformed YAML, invalid CLI options, query syntax errors, or discovery Silent-Zero Guard misconfiguration. | After report / Immediate |
+| **2** | Budget Exceeded: Cumulative Request Units exceeded `--ru-budget` ceiling (profiling mode only). | After report |
+| **3** | Connection Failure: Target endpoint unreachable, network dropped mid-run, or Log Analytics workspace unreachable. | Immediate abort |
+| **4** | Diagnostic Gate Breached: Findings met or exceeded `--fail-on` threshold (profiling mode only). | After report |
+| **5** | Authentication Failure: Missing credentials, expired token, or missing RBAC permissions (`Cosmos DB Built-in Data Reader` or `Log Analytics Reader`). | Immediate abort |
 
 ---
 
@@ -74,3 +97,5 @@ Key architectural choices are formally documented in our Architectural Decision 
 - [ADR 0003](adr/0003-test-first-property-testing-and-docker-emulator.md): TDD testing strategy combining Hypothesis property-based fuzzing, Syrupy snapshot assertions, and automated Docker Linux Cosmos DB emulator integration.
 - [ADR 0004](adr/0004-cli-first-design-and-deterministic-exit-codes.md): CLI-first ergonomics and strict deterministic exit code hierarchy (`0`, `1`, `2`, `3`, `4`, `5`) for pipeline orchestration.
 - [ADR 0005](adr/0005-azure-cosmos-sdk-contracts-and-metrics-extraction.md): Azure Cosmos SDK metrics extraction via `response_hook`, header parsing, and distinct physical partition key range IDs for cross-partition detection.
+- [ADR 0006](adr/0006-azure-monitor-logs-query-contracts.md): Azure Monitor Logs query contracts, two-query server-side KQL aggregation, container-scoped database resolution, top-3 caller ranking, property bag packaging, and strict dynamic deserialization.
+- [ADR 0007](adr/0007-kql-injection-defense-and-input-validation.md): KQL injection defense, strict regex parameter boundary validation, and sanitization invariants for offline and online query construction.

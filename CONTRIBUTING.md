@@ -54,6 +54,21 @@ Type checking is performed using [Pyrefly](https://github.com/facebook/pyrefly) 
 uv run pyrefly check
 ```
 
+### Offline Discovery Testing
+
+All Log Analytics discovery tests (KQL query construction, parameter validation, caller attribution, service orchestration, and output formatting) run 100% offline without Azure network calls or credentials using synthetic fixtures:
+
+```bash
+uv run pytest tests/unit/test_discover_* tests/integration/test_discover_snapshots.py
+```
+
+### Live-Gate Policy & Synthetic Regression Fixtures
+
+In accordance with Constitution Principle I (Read-Only Safety) and Principle III (Offline CI Verification), KQL queries are never executed against live Azure infrastructure in automated CI pipelines. Instead, releases and discovery features are gated on the live workspace qualification procedure in `docs/manual-testing.md` and `docs/live-gate.md`.
+
+- **Golden KQL Snapshot Diff Means Re-Gate**: Any code change that alters generated KQL queries (producing a diff in `tests/unit/__snapshots__/test_discover_kql_snapshots.ambr`) invalidates prior live qualification and **strictly requires re-executing the live workspace gate** against a real workspace before merging or releasing.
+- **Synthetic Regression Fixture Policy**: Every discrepancy, edge case, or unexpected server serialization encountered during live-gate qualification must produce a regression fixture in `tests/fixtures/synthetic_logs.py` mirroring the **real server result shape**, populated with synthetic values only. Live findings are permanently codified into offline regression tests.
+
 ### Regenerating README Assets
 
 The terminal SVG demo in the README (`docs/assets/querylens-demo.svg`) is generated from deterministic sample run metrics (`docs/assets/sample-run.json`).

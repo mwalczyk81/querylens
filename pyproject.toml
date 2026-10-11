@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "querylens"
-version = "0.1.0"
+version = "0.2.0"
 description = "Analyze database query cost and recommend fixes"
 readme = "README.md"
 license = "MIT"
@@ -22,6 +22,7 @@ classifiers = [
 dependencies = [
     "azure-cosmos>=4.7.0",
     "azure-identity>=1.16.0",
+    "azure-monitor-query==2.0.0",
     "click>=8.1.7",
     "pydantic>=2.7.0",
     "pydantic-settings>=2.2.0",
@@ -95,7 +96,7 @@ markers = [
 
 [tool.pyrefly]
 project-includes = ["src", "tests", "scripts"]
-search-path = ["src", "scripts"]
+search-path = ["src", "scripts", "."]
 python-version = "3.12"
 
 [tool.coverage.run]

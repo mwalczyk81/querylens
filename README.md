@@ -119,6 +119,74 @@ uv run querylens run examples/workload.yaml
 
 ---
 
+## 🔍 Discover Query Costs from Diagnostic Logs (`querylens discover`)
+
+For production environments with hundreds of services or dynamically generated LINQ queries, manually authoring workload files is impractical. The `querylens discover` command aggregates existing Azure Log Analytics diagnostic logs to uncover the most expensive query shapes and attributing callers across your Cosmos DB databases.
+
+### Prerequisites & Permissions
+
+- **Authentication**: Authenticates passwordlessly via Microsoft Entra ID (`DefaultAzureCredential`). Run `az login` prior to execution.
+- **RBAC Role**: Requires the built-in **Log Analytics Reader** role on the target workspace. No Cosmos DB credentials or data-plane access are required.
+- **Diagnostic Settings**: Requires Azure Cosmos DB diagnostic settings routed to Log Analytics using the legacy **AzureDiagnostics** table (`ResourceProvider =~ "MICROSOFT.DOCUMENTDB"`), with both `DataPlaneRequests` and `QueryRuntimeStatistics` categories enabled.
+
+### Basic Discovery
+
+Discover the top 20 query shapes over the last 24 hours:
+
+```bash
+uv run querylens discover --workspace-id <LOG_ANALYTICS_WORKSPACE_ID>
+```
+
+Filter by specific Cosmos DB account or adjust the evaluation window:
+
+```bash
+uv run querylens discover -w <WORKSPACE_ID> --account my-prod-cosmos -t 7d --top 10
+```
+
+> [!NOTE]
+> **Log Ingestion Latency**: Azure Log Analytics diagnostic logs typically exhibit an ingestion latency of 2 to 5 minutes between Cosmos DB event generation and availability in diagnostic tables. The most recent few minutes of telemetry in the evaluation window may still be processing and therefore incomplete.
+
+### Preflight Workspace Check (`--check`)
+
+Before running discovery, verify whether the Log Analytics workspace has complete diagnostic telemetry configured:
+
+```bash
+uv run querylens discover -w <WORKSPACE_ID> --check
+```
+
+The preflight report checks category presence, record timestamps, column coverage ratios, and authentication token distributions. It outputs **0% customer data or query text**, making it safe to share internally when troubleshooting telemetry issues.
+
+### Offline KQL Inspection (`--print-kql`)
+
+To inspect or copy the server-side KQL queries directly into the Azure Portal Logs editor:
+
+```bash
+uv run querylens discover -w <WORKSPACE_ID> --print-kql
+```
+
+`--print-kql` validates input options, builds both generated queries (`Query 1: Top Shapes` and `Query 2: Totals`), and prints them to stdout with **zero network calls and zero Azure credentials**. Combining `--check` with `--print-kql` prints the preflight diagnostic query.
+
+### Sensitive Query Text Privacy (`--show-text`)
+
+To protect potentially sensitive query filters from leaking into terminal scrollback or automated log aggregators:
+
+- **Terminal Table**: `Sample Query` is truncated to 200 characters by default.
+- **Machine-Readable JSON**: `sample_query_text` is **completely omitted** by default.
+- **Structured Logs**: Query text is never logged to debug loggers.
+
+To explicitly include full obfuscated query text in console and JSON outputs, pass `--show-text`:
+
+```bash
+uv run querylens discover -w <WORKSPACE_ID> --show-text --json
+```
+
+> [!NOTE]
+> **Microsoft Query-Text Obfuscation Caveat**: In `QueryRuntimeStatistics` diagnostic logs, Microsoft Azure automatically obfuscates query text by replacing filter literals and parameters with placeholders. QueryLens preserves and displays this text verbatim as emitted by Azure.
+>
+> **Discovered Shapes Cannot Be Replayed**: Because Microsoft obfuscates runtime parameter values and does not log partition key values in diagnostic telemetry, discovered query shapes cannot be automatically converted into replayable workload files for `querylens run`.
+
+---
+
 ## 📊 Machine-Readable Output (`--json`)
 
 QueryLens supports CI/CD automation and dashboard integration via the global `--json` flag. The structured output conforms to [`run-output-schema.json`](specs/001-cosmos-query-cost/contracts/run-output-schema.json).

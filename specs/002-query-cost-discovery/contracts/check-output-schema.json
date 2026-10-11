@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PreflightCheckReport",
+  "type": "object",
+  "required": [
+    "categories_detected",
+    "row_counts",
+    "window_start",
+    "window_end",
+    "earliest_record",
+    "latest_record",
+    "field_coverage",
+    "auth_breakdown",
+    "retention_warning",
+    "masked_workspace_id"
+  ],
+  "properties": {
+    "categories_detected": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "row_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "window_start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "window_end": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "earliest_record": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "latest_record": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "field_coverage": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    },
+    "auth_breakdown": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "retention_warning": {
+      "type": "boolean"
+    },
+    "masked_workspace_id": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from querylens.adapters.cosmos import BudgetExceededError, CosmosAdapter
 from querylens.adapters.protocol import DatabaseAdapter
 from querylens.config import Settings
+from querylens.discover_cli import discover
 from querylens.logging import configure_logging
 from querylens.model import (
     Finding,
@@ -49,7 +50,7 @@ def get_adapter(settings: Settings) -> DatabaseAdapter:
 
 @click.group()
 @click.option("--debug", is_flag=True, default=False, help="Enable verbose debug logging.")
-@click.version_option(version="0.1.0")
+@click.version_option(package_name="querylens")
 @click.pass_context
 def cli(ctx: click.Context, debug: bool) -> None:
     """QueryLens: Azure Cosmos DB Query Cost Profiler and Anti-Pattern Diagnoser."""
@@ -292,6 +293,8 @@ def run(
 
     sys.exit(0)
 
+
+cli.add_command(discover)
 
 main = cli
 

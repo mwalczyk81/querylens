@@ -1,0 +1,284 @@
+"""CLI command handler for querylens discover."""
+
+import sys
+from datetime import UTC, datetime, timedelta
+from typing import Any
+from uuid import UUID
+
+import click
+from azure.core.exceptions import (
+    ClientAuthenticationError,
+    HttpResponseError,
+    ServiceRequestError,
+    ServiceRequestTimeoutError,
+)
+from azure.identity import DefaultAzureCredential
+from azure.monitor.query import LogsQueryClient
+from rich.console import Console
+
+from querylens.discovery.kql import (
+    build_preflight_check_query,
+    build_shapes_query,
+    build_totals_query,
+)
+from querylens.discovery.models import (
+    ACCOUNT_NAME_PATTERN,
+    DiscoveryOptions,
+    DiscoveryValidationError,
+    InternalConsistencyError,
+    TelemetryMisconfigurationError,
+    parse_duration_string,
+)
+from querylens.discovery.service import run_discovery
+from querylens.report.discover_console import (
+    render_discover_console_report,
+)
+from querylens.report.discover_json import (
+    serialize_discovery_json,
+)
+
+# Align Click usage errors with QueryLens exit code 1 (Validation / Usage Error)
+click.exceptions.UsageError.exit_code = 1
+
+
+def _validate_workspace_id(ctx: click.Context, param: click.Parameter, value: Any) -> UUID:
+    """Validate that workspace-id is a valid RFC 4122 UUID."""
+    if value is None:
+        raise click.BadParameter("Workspace ID is required.", ctx=ctx, param=param)
+    val = str(value).strip()
+    try:
+        return UUID(val)
+    except (ValueError, AttributeError) as err:
+        raise click.BadParameter(
+            f"Invalid workspace ID '{val}'. Must be a valid RFC 4122 UUID.",
+            ctx=ctx,
+            param=param,
+        ) from err
+
+
+def _validate_account(ctx: click.Context, param: click.Parameter, value: Any) -> str | None:
+    """Validate that account name matches Cosmos DB account naming rules."""
+    if value is None:
+        return None
+    val = str(value).strip()
+    if not val:
+        return None
+    if not ACCOUNT_NAME_PATTERN.match(val):
+        raise click.BadParameter(
+            f"Invalid account filter '{val}'. Must match Cosmos DB account naming pattern.",
+            ctx=ctx,
+            param=param,
+        )
+    return val
+
+
+def _validate_time_window(ctx: click.Context, param: click.Parameter, value: Any) -> timedelta:
+    """Validate and parse time window into a bounded timedelta."""
+    if value is None:
+        return timedelta(hours=24)
+    try:
+        return parse_duration_string(value)
+    except DiscoveryValidationError as err:
+        raise click.BadParameter(str(err), ctx=ctx, param=param) from err
+
+
+def get_logs_client() -> LogsQueryClient:
+    """Instantiate and return an Azure Monitor LogsQueryClient with Entra ID credentials."""
+    credential = DefaultAzureCredential()
+    return LogsQueryClient(credential=credential)
+
+
+@click.command(name="discover")
+@click.option(
+    "-w",
+    "--workspace-id",
+    envvar="QUERYLENS_WORKSPACE_ID",
+    required=True,
+    callback=_validate_workspace_id,
+    help="Target Azure Log Analytics workspace GUID (RFC 4122 UUID).",
+)
+@click.option(
+    "-a",
+    "--account",
+    "account_filter",
+    default=None,
+    callback=_validate_account,
+    help="Optional Cosmos DB account name to filter diagnostic records.",
+)
+@click.option(
+    "-t",
+    "--time-window",
+    default="24h",
+    callback=_validate_time_window,
+    help="Lookback time window duration (e.g. '1h', '24h', '7d'). Default: 24h.",
+)
+@click.option(
+    "-n",
+    "--top",
+    "top_n",
+    default=20,
+    type=click.IntRange(1, 100),
+    help="Maximum number of query shapes to return (1-100). Default: 20.",
+)
+@click.option(
+    "--timeout",
+    "server_timeout_seconds",
+    default=180,
+    type=click.IntRange(10, 600),
+    help="Azure Monitor query server timeout in seconds (10-600). Default: 180.",
+)
+@click.option(
+    "--print-kql",
+    is_flag=True,
+    default=False,
+    help="Build and print generated KQL queries to stdout without network calls or credentials.",
+)
+@click.option(
+    "--show-text",
+    is_flag=True,
+    default=False,
+    help="Expose full obfuscated query text without 200-char truncation.",
+)
+@click.option(
+    "--check",
+    "check_only",
+    is_flag=True,
+    default=False,
+    help="Execute preflight diagnostic telemetry inspection instead of discovery.",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    default=False,
+    help="Output machine-readable JSON to stdout.",
+)
+def discover(
+    workspace_id: UUID,
+    account_filter: str | None,
+    time_window: timedelta,
+    top_n: int,
+    server_timeout_seconds: int,
+    print_kql: bool,
+    show_text: bool,
+    check_only: bool,
+    json_output: bool,
+) -> None:
+    """Discover high-cost Cosmos DB query shapes from Azure Log Analytics diagnostic logs."""
+    err_console = Console(stderr=True)
+
+    # Validate options
+    try:
+        options = DiscoveryOptions(
+            workspace_id=workspace_id,
+            account_filter=account_filter,
+            time_window=time_window,
+            top_n=top_n,
+            server_timeout_seconds=server_timeout_seconds,
+            show_text=show_text,
+            check_only=check_only,
+            print_kql=print_kql,
+            json_output=json_output,
+        )
+    except (DiscoveryValidationError, ValueError) as err:
+        err_console.print(f"[bold red]Error:[/bold red] {err}")
+        sys.exit(1)
+
+    # Offline KQL inspection
+    if options.print_kql:
+        if options.check_only:
+            check_kql = build_preflight_check_query(account_filter=options.account_filter)
+            click.echo("// === Preflight Diagnostic Check Query ===")
+            click.echo(check_kql)
+            sys.exit(0)
+
+        shapes_kql = build_shapes_query(top_n=options.top_n, account_filter=options.account_filter)
+        totals_kql = build_totals_query(account_filter=options.account_filter)
+
+        click.echo("// Run each query separately in the Logs editor.")
+        click.echo("// === Query 1: Top Query Shapes Query ===")
+        click.echo(shapes_kql)
+        click.echo("\n// === Query 2: Window & Attributed Totals Query ===")
+        click.echo(totals_kql)
+        sys.exit(0)
+
+    # Compute absolute evaluation window once per command run
+    window_end = datetime.now(UTC)
+    window_start = window_end - options.time_window
+
+    # Check mode handler (stubbed for US2 implementation)
+    if options.check_only:
+        # Handled in Phase 4 / US2
+        from querylens.discovery.service import run_preflight_check
+        from querylens.report.discover_console import render_check_console_report
+        from querylens.report.discover_json import serialize_check_json
+
+        try:
+            client = get_logs_client()
+            check_report = run_preflight_check(
+                options, client=client, window_start=window_start, window_end=window_end
+            )
+            if options.json_output:
+                click.echo(serialize_check_json(check_report))
+            else:
+                render_check_console_report(check_report)
+            sys.exit(0)
+        except InternalConsistencyError as err:
+            err_console.print(
+                f"[bold red]Internal consistency error:[/bold red] {err}\n"
+                "This is a bug in querylens; please report it with the output of 'discover --check'"
+            )
+            sys.exit(1)
+        except ClientAuthenticationError as err:
+            err_console.print(f"[bold red]Authentication Error:[/bold red] {err}")
+            sys.exit(5)
+        except HttpResponseError as err:
+            if err.status_code in (401, 403):
+                err_console.print(f"[bold red]Authorization Error:[/bold red] {err}")
+                sys.exit(5)
+            if err.status_code == 404:
+                err_console.print(f"[bold red]Workspace Not Found:[/bold red] {err}")
+                sys.exit(3)
+            err_console.print(f"[bold red]API Error:[/bold red] {err}")
+            sys.exit(1)
+        except (ServiceRequestError, ServiceRequestTimeoutError) as err:
+            err_console.print(f"[bold red]Connection Error:[/bold red] {err}")
+            sys.exit(3)
+
+    # Standard discovery execution
+    try:
+        client = get_logs_client()
+        summary = run_discovery(
+            options=options, client=client, window_start=window_start, window_end=window_end
+        )
+
+        if options.json_output:
+            click.echo(serialize_discovery_json(summary, show_text=options.show_text))
+        else:
+            render_discover_console_report(summary, show_text=options.show_text)
+        sys.exit(0)
+
+    except InternalConsistencyError as err:
+        err_console.print(
+            f"[bold red]Internal consistency error:[/bold red] {err}\n"
+            "This is a bug in querylens; please report it with the output of 'discover --check'"
+        )
+        sys.exit(1)
+    except TelemetryMisconfigurationError as err:
+        err_console.print(f"[bold red]Error:[/bold red] {err}")
+        sys.exit(1)
+    except ClientAuthenticationError as err:
+        err_console.print(f"[bold red]Authentication Error:[/bold red] {err}")
+        sys.exit(5)
+    except HttpResponseError as err:
+        if err.status_code in (401, 403):
+            err_console.print(f"[bold red]Authorization Error:[/bold red] {err}")
+            sys.exit(5)
+        if err.status_code == 404:
+            err_console.print(f"[bold red]Workspace Not Found:[/bold red] {err}")
+            sys.exit(3)
+        err_console.print(f"[bold red]API Error:[/bold red] {err}")
+        sys.exit(1)
+    except (ServiceRequestError, ServiceRequestTimeoutError) as err:
+        err_console.print(f"[bold red]Connection Error:[/bold red] {err}")
+        sys.exit(3)
