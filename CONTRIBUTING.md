@@ -131,6 +131,8 @@ ClusterFuzzLite build inputs are pinned to prevent supply chain tampering and en
    uv pip compile .clusterfuzzlite/requirements.in --python-version 3.11 --generate-hashes --output-file .clusterfuzzlite/requirements.txt
    ```
 
+   QueryLens itself is not installed via `pip install` inside the container; instead, `PYTHONPATH` is exported pointing to `$SRC/querylens/src` (and `--paths` is passed to `compile_python_fuzzer`), so fuzz targets import QueryLens directly from the source tree. This eliminates the need for `--ignore-requires-python` on the container's Python 3.11 runtime, while PyInstaller bundles the pure Python source into the compiled fuzz binaries.
+
 3. **Dependabot Updates**: Dependabot monitors `/.clusterfuzzlite` weekly for both Docker base image updates (`docker` ecosystem) and Python dependency updates (`pip` ecosystem), grouping minor and patch updates under the `chore(fuzz)` commit prefix.
 
 #### Running Fuzz Targets Locally

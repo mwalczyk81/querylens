@@ -3,13 +3,12 @@
 # Install pinned dependencies and build backend with hash verification
 pip install --require-hashes -r .clusterfuzzlite/requirements.txt
 
-# Install querylens into Python environment using pre-installed build backend,
-# ignoring Requires-Python constraint since base-builder-python runs Python 3.11
-pip install --no-build-isolation --no-deps --ignore-requires-python .
+# Export querylens source tree to PYTHONPATH for fuzzer compilation
+export PYTHONPATH="$SRC/querylens/src:${PYTHONPATH:-}"
 
 # Compile python fuzz targets into $OUT
 for fuzzer in $(find .clusterfuzzlite -maxdepth 1 -name 'fuzz_*.py'); do
-    compile_python_fuzzer "$fuzzer"
+    compile_python_fuzzer "$fuzzer" --paths "$SRC/querylens/src"
 done
 
 # Copy seed corpora into $OUT
