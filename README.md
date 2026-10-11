@@ -143,6 +143,9 @@ Filter by specific Cosmos DB account or adjust the evaluation window:
 uv run querylens discover -w <WORKSPACE_ID> --account my-prod-cosmos -t 7d --top 10
 ```
 
+> [!NOTE]
+> **Log Ingestion Latency**: Azure Log Analytics diagnostic logs typically exhibit an ingestion latency of 2 to 5 minutes between Cosmos DB event generation and availability in diagnostic tables. The most recent few minutes of telemetry in the evaluation window may still be processing and therefore incomplete.
+
 ### Preflight Workspace Check (`--check`)
 
 Before running discovery, verify whether the Log Analytics workspace has complete diagnostic telemetry configured:
