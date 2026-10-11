@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/mwalczyk81/querylens/actions/workflows/ci.yml/badge.svg)](https://github.com/mwalczyk81/querylens/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/mwalczyk81/querylens/graph/badge.svg)](https://codecov.io/gh/mwalczyk81/querylens)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/mwalczyk81/querylens/badge)](https://securityscorecards.dev/viewer/?repo=github.com/mwalczyk81/querylens)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/mwalczyk81/querylens/badge)](https://scorecard.dev/viewer/?uri=github.com/mwalczyk81/querylens)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 
@@ -288,7 +288,7 @@ Every change triggers automated CI workflows enforcing strict code hygiene (Ruff
 
 ### Security Posture
 
-We track repository supply chain security using the [OpenSSF Scorecard](https://securityscorecards.dev/viewer/?repo=github.com/mwalczyk81/querylens). Scorecard evaluates open-source projects against automated security criteria:
+We track repository supply chain security using the [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/mwalczyk81/querylens). Scorecard evaluates open-source projects against automated security criteria:
 
 - **Strong automated controls**: GitHub Actions pinned to immutable commit SHAs with version comments, minimal `GITHUB_TOKEN` permissions (`contents: read`), CodeQL static analysis (SAST), automated dependency updates via Dependabot, dependency vulnerability scanning with `pip-audit`, secret scanning via Gitleaks, and a published security policy ([SECURITY.md](SECURITY.md)).
 - **Structural characteristics of a young solo project**: Some Scorecard checks are structurally low for early-stage single-maintainer repositories rather than reflecting security gaps. Specifically, **Code-Review** requires pull requests to be approved by a second reviewer, **Contributors** requires maintainers from multiple distinct organizations, and **Maintained** requires commit activity spanning at least 90 days.
