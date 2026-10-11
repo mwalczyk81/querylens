@@ -112,7 +112,7 @@
 - [x] T036 [US3] Implement query text truncation and caller rendering in src/querylens/report/discover_console.py (formatting top 3 callers with RU shares, and truncating `sample_query_text` to 200 characters unless `show_text=True`) and query text omission in src/querylens/report/discover_json.py (omitting `sample_query_text` from output dictionary unless `show_text=True`, and serializing `top_callers`)
 - [x] T037 [US3] Wire `--show-text` flag into src/querylens/discover_cli.py propagating option through DiscoveryOptions to console and JSON formatters
 
-**Checkpoint**: All three user stories are now complete, with caller attribution and privacy invariants enforced. Pending: live gate for US3 (callers) and the materialize(ql_resolved_activities) change will run at the final commit.
+**Checkpoint**: All three user stories are now complete, with caller attribution and privacy invariants enforced. Live gate for US3 (callers), the materialize(ql_resolved_activities) optimization, and Pass 2c fixes successfully validated on real workspace at commit `7ba7421`.
 
 ---
 
@@ -126,7 +126,7 @@
 - [x] T041 Verify test coverage threshold >= 85% across all discovery and report modules using uv run pytest --cov=querylens --cov-fail-under=85
 - [x] T042 [P] Run static analysis and linting checks using uv run ruff check src tests, uv run ruff format --check src tests, and uv run pyrefly check
 - [x] T043 Run full pre-commit pipeline across all repository files using uv run pre-commit run --all-files
-- [ ] T044 Run docs/live-gate.md at the final commit (callers, materialize change) and record the tested commit SHA.
+- [x] T044 Run docs/live-gate.md at the final commit (callers, materialize change) and record the tested commit SHA (Completed: live gate passed on real workspace at commit `7ba7421`)
 
 ---
 
