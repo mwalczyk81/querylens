@@ -30,6 +30,9 @@ class FrozenDatetime(datetime):
 class TestDiscoverSnapshots:
     """Snapshot regression tests for discover and check outputs."""
 
+    # Force legacy_windows=False so Rich renders deterministic unicode box styling
+    # (rounded panels, heavy-head tables) identically across Windows and Linux CI runners.
+    @patch("rich.console.detect_legacy_windows", lambda: False)
     @patch("querylens.discovery.service.datetime", FrozenDatetime)
     @patch("querylens.discover_cli.get_logs_client")
     def test_discover_console_table_snapshot(
@@ -83,6 +86,9 @@ class TestDiscoverSnapshots:
         parsed = json.loads(result.output)
         assert parsed == snapshot
 
+    # Force legacy_windows=False so Rich renders deterministic unicode box styling
+    # (rounded panels, heavy-head tables) identically across Windows and Linux CI runners.
+    @patch("rich.console.detect_legacy_windows", lambda: False)
     @patch("querylens.discovery.service.datetime", FrozenDatetime)
     @patch("querylens.discover_cli.get_logs_client")
     def test_check_console_report_snapshot(
