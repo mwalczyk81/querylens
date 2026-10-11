@@ -100,17 +100,17 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T030 [P] [US3] Author query text privacy contract test test_discover_json_omits_query_text_by_default and caller attribution contract test in tests/unit/test_discover_contract.py asserting that default `--json` output omits sample_query_text, that `--show-text --json` includes sample_query_text, and that top_callers is populated according to specs/002-query-cost-discovery/contracts/discover-output-schema.json
-- [ ] T031 [P] [US3] Author caller attribution KQL builder tests in tests/unit/test_discover_kql.py and update golden snapshots in tests/unit/test_discover_kql_snapshots.py for the extended Top Shapes query including `top_callers_per_shape` join and `make_list(bag_pack(...), 3)`
-- [ ] T032 [P] [US3] Author caller attribution parsing unit tests in tests/unit/test_discover_service.py testing dynamic bag unpacking for `top_callers`, Entra ID principal GUID preference (`aadPrincipalId_g`), client IP fallback (`clientIpAddress_s`), blank caller omission, max 3 callers per shape, and individual caller RU share calculations
-- [ ] T033 [P] [US3] Author query text privacy CLI unit tests in tests/unit/test_discover_cli.py verifying console table truncates `sample_query_text` to 200 characters unless `--show-text` is passed, and asserting query text is never logged to internal structlog loggers
+- [x] T030 [P] [US3] Author query text privacy contract test test_discover_json_omits_query_text_by_default and caller attribution contract test in tests/unit/test_discover_contract.py asserting that default `--json` output omits sample_query_text, that `--show-text --json` includes sample_query_text, and that top_callers is populated according to specs/002-query-cost-discovery/contracts/discover-output-schema.json
+- [x] T031 [P] [US3] Author caller attribution KQL builder tests in tests/unit/test_discover_kql.py and update golden snapshots in tests/unit/test_discover_kql_snapshots.py for the extended Top Shapes query including `top_callers_per_shape` join and `make_list(bag_pack(...), 3)`
+- [x] T032 [P] [US3] Author caller attribution parsing unit tests in tests/unit/test_discover_service.py testing dynamic bag unpacking for `top_callers`, Entra ID principal GUID preference (`aadPrincipalId_g`), client IP fallback (`clientIpAddress_s`), blank caller omission, max 3 callers per shape, and individual caller RU share calculations
+- [x] T033 [P] [US3] Author query text privacy CLI unit tests in tests/unit/test_discover_cli.py verifying console table truncates `sample_query_text` to 200 characters unless `--show-text` is passed, and asserting query text is never logged to internal structlog loggers
 
 ### Implementation for User Story 3
 
-- [ ] T034 [US3] Extend build_shapes_query in src/querylens/discovery/kql.py with `top_callers_per_shape` join, per-shape caller ranking (`caller_ru desc`), and dynamic array construction `make_list(bag_pack(...), 3)`
-- [ ] T035 [US3] Implement dynamic caller bag parsing in src/querylens/discovery/service.py parsing KQL `top_callers` list of bags (`identifier`, `caller_ru`, `identifier_type`) into `list[CallerAttribution]`, computing caller RU share relative to shape total RU, and enforcing maximum of 3 callers per shape
-- [ ] T036 [US3] Implement query text truncation and caller rendering in src/querylens/report/discover_console.py (formatting top 3 callers with RU shares, and truncating `sample_query_text` to 200 characters unless `show_text=True`) and query text omission in src/querylens/report/discover_json.py (omitting `sample_query_text` from output dictionary unless `show_text=True`, and serializing `top_callers`)
-- [ ] T037 [US3] Wire `--show-text` flag into src/querylens/discover_cli.py propagating option through DiscoveryOptions to console and JSON formatters
+- [x] T034 [US3] Extend build_shapes_query in src/querylens/discovery/kql.py with `top_callers_per_shape` join, per-shape caller ranking (`caller_ru desc`), and dynamic array construction `make_list(bag_pack(...), 3)`
+- [x] T035 [US3] Implement dynamic caller bag parsing in src/querylens/discovery/service.py parsing KQL `top_callers` list of bags (`identifier`, `caller_ru`, `identifier_type`) into `list[CallerAttribution]`, computing caller RU share relative to shape total RU, and enforcing maximum of 3 callers per shape
+- [x] T036 [US3] Implement query text truncation and caller rendering in src/querylens/report/discover_console.py (formatting top 3 callers with RU shares, and truncating `sample_query_text` to 200 characters unless `show_text=True`) and query text omission in src/querylens/report/discover_json.py (omitting `sample_query_text` from output dictionary unless `show_text=True`, and serializing `top_callers`)
+- [x] T037 [US3] Wire `--show-text` flag into src/querylens/discover_cli.py propagating option through DiscoveryOptions to console and JSON formatters
 
 **Checkpoint**: All three user stories are now complete, with caller attribution and privacy invariants enforced.
 

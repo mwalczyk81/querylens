@@ -14,6 +14,7 @@ from querylens.discovery.kql import (
     build_totals_query,
 )
 from querylens.discovery.models import (
+    CallerAttribution,
     DiscoveredQueryShape,
     DiscoveryOptions,
     InternalConsistencyError,
@@ -41,6 +42,113 @@ def _parse_timestamp(ts: Any) -> datetime | None:
         except ValueError:
             return None
     return None
+
+
+def _parse_top_callers(raw_callers: Any, shape_total_ru: float) -> list[CallerAttribution]:
+    """Parse and strictly validate top_callers dynamic property bags from Query 1 row.
+
+    Args:
+        raw_callers: Raw column value from row["ql_top_callers"].
+        shape_total_ru: Total RU of the containing query shape.
+
+    Returns:
+        List of up to 3 validated CallerAttribution models.
+
+    Raises:
+        InternalConsistencyError: If the caller list or its items violate shape or type invariants.
+    """
+    if raw_callers is None:
+        return []
+
+    if isinstance(raw_callers, str):
+        val = raw_callers.strip()
+        if not val or val == "[]":
+            return []
+        try:
+            parsed = json.loads(val)
+        except (ValueError, TypeError) as err:
+            raise InternalConsistencyError(f"Failed to parse callers JSON: {err}") from err
+    else:
+        parsed = raw_callers
+
+    if not isinstance(parsed, list):
+        msg = (
+            f"Unexpected top callers shape: expected list of caller objects, "
+            f"got {type(parsed).__name__}: {parsed!r}"
+        )
+        raise InternalConsistencyError(msg)
+
+    if not parsed:
+        return []
+
+    for item in parsed:
+        if not isinstance(item, dict):
+            msg = (
+                f"Unexpected caller item shape: expected dict of caller properties, "
+                f"got {type(item).__name__}: {item!r}"
+            )
+            raise InternalConsistencyError(msg)
+
+    if len(parsed) > 3:
+        raise InternalConsistencyError(
+            f"Top callers exceeded maximum of 3 callers per shape: got {len(parsed)}"
+        )
+
+    callers: list[CallerAttribution] = []
+    for item in parsed:
+        if "identifier" not in item or "caller_ru" not in item or "identifier_type" not in item:
+            missing = [k for k in ("identifier", "caller_ru", "identifier_type") if k not in item]
+            msg = f"Caller item missing required keys {missing}: {item!r}"
+            raise InternalConsistencyError(msg)
+
+        raw_id = item["identifier"]
+        raw_ru = item["caller_ru"]
+        raw_type = item["identifier_type"]
+
+        if not isinstance(raw_id, str) or not raw_id.strip():
+            raise InternalConsistencyError(
+                f"Caller identifier must be non-empty string, got {raw_id!r}"
+            )
+
+        if isinstance(raw_ru, bool) or not isinstance(raw_ru, (int, float)) or raw_ru < 0:
+            raise InternalConsistencyError(
+                f"Caller caller_ru must be non-negative number, got {raw_ru!r}"
+            )
+
+        if raw_type not in ("aad_principal", "client_ip"):
+            raise InternalConsistencyError(
+                f"Caller identifier_type must be 'aad_principal' or 'client_ip', got {raw_type!r}"
+            )
+
+        caller_ru_float = float(raw_ru)
+        if shape_total_ru > 0.0:
+            ru_share = (caller_ru_float / shape_total_ru) * 100.0
+            if ru_share > 100.0:
+                if ru_share <= 100.001:  # Floating-point tolerance
+                    ru_share = 100.0
+                else:
+                    msg = (
+                        f"Caller RU share exceeded 100.0%: {ru_share:.2f}% "
+                        f"({caller_ru_float}/{shape_total_ru}). "
+                        "Caller RU cannot exceed shape total RU."
+                    )
+                    raise InternalConsistencyError(msg)
+            elif ru_share < 0.0:
+                raise InternalConsistencyError(
+                    f"Caller RU share cannot be negative: {ru_share:.2f}%"
+                )
+        else:
+            ru_share = 0.0
+
+        callers.append(
+            CallerAttribution(
+                identifier=raw_id.strip(),
+                ru_share_pct=ru_share,
+                identifier_type=raw_type,
+            )
+        )
+
+    return callers
 
 
 def run_discovery(
@@ -155,6 +263,13 @@ def run_discovery(
             except (KeyError, IndexError):
                 sample_text = None
 
+            callers: list[CallerAttribution] = []
+            try:
+                raw_callers = row["ql_top_callers"]
+                callers = _parse_top_callers(raw_callers, tot_ru)
+            except (KeyError, IndexError):
+                callers = []
+
             raw_db = row["ql_db_name"]
             raw_coll = row["ql_coll_name"]
             db_val = str(raw_db).strip() if raw_db else "(unknown)"
@@ -174,7 +289,7 @@ def run_discovery(
                     avg_returned_rows=avg_returned,
                     ru_per_returned_row=ru_per_row,
                     throttled_count=int(row["ql_throttled_count"] or 0),
-                    top_callers=[],
+                    top_callers=callers,
                 )
             )
 

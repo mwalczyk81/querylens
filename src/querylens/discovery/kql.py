@@ -127,11 +127,38 @@ let ql_top_shapes = materialize(
       by ql_db_name, ql_coll_name, ql_shape_id
     | top {top_n} by ql_total_ru desc
 );
+let ql_top_shape_keys = ql_top_shapes
+| project ql_db_name, ql_coll_name, ql_shape_id;
+let ql_top_callers_per_shape = ql_resolved_activities
+| join kind=inner ql_top_shape_keys on ql_db_name, ql_coll_name, ql_shape_id
+| extend
+    ql_caller_id = iff(isnotempty(ql_aad_principal), ql_aad_principal, ql_client_ip),
+    ql_caller_type = iff(
+        isnotempty(ql_aad_principal),
+        "aad_principal",
+        iff(isnotempty(ql_client_ip), "client_ip", "none")
+    )
+| where isnotempty(ql_caller_id) and ql_caller_type != "none"
+| summarize ql_caller_ru = sum(ql_total_charge)
+  by ql_db_name, ql_coll_name, ql_shape_id, ql_caller_id, ql_caller_type
+| order by ql_shape_id asc, ql_caller_ru desc
+| summarize
+    ql_top_callers = make_list(
+        bag_pack(
+            "identifier", ql_caller_id,
+            "caller_ru", ql_caller_ru,
+            "identifier_type", ql_caller_type
+        ),
+        3
+    )
+  by ql_db_name, ql_coll_name, ql_shape_id;
 ql_top_shapes
+| join kind=leftouter ql_top_callers_per_shape on ql_db_name, ql_coll_name, ql_shape_id
 | project
     ql_db_name, ql_coll_name, ql_shape_id, ql_sample_text,
     ql_execution_count, ql_total_ru, ql_max_ru, ql_total_returned_rows,
-    ql_throttled_count"""
+    ql_throttled_count,
+    ql_top_callers = coalesce(ql_top_callers, dynamic([]))"""
 
 
 def build_totals_query(account_filter: str | None = None) -> str:

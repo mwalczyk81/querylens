@@ -75,6 +75,7 @@ def render_discover_console_report(
     table.add_column("Avg Rows", justify="right")
     table.add_column("RU/Row", justify="right")
     table.add_column("429s", justify="right", style="red")
+    table.add_column("Top Callers", style="dim")
     table.add_column("Sample Query", style="green")
 
     for shape in summary.results:
@@ -82,6 +83,13 @@ def render_discover_console_report(
         ru_per_row_str = (
             f"{shape.ru_per_returned_row:.2f}" if shape.ru_per_returned_row is not None else "n/a"
         )
+
+        if shape.top_callers:
+            callers_display = "\n".join(
+                f"{c.identifier} ({c.ru_share_pct:.1f}%)" for c in shape.top_callers
+            )
+        else:
+            callers_display = "n/a"
 
         query_text = shape.sample_query_text or "n/a"
         if not show_text and len(query_text) > 200:
@@ -101,6 +109,7 @@ def render_discover_console_report(
             f"{shape.avg_returned_rows:.1f}",
             ru_per_row_str,
             str(shape.throttled_count),
+            callers_display,
             query_display,
         )
 

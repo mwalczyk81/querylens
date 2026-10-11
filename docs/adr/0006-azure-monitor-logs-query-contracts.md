@@ -234,9 +234,9 @@ During live workspace testing, queries using identifiers such as `queries` faile
 To make identifier collisions structurally impossible across all Azure Monitor versions and service environments:
 
 * **Universal `ql_` Prefix Control**: **EVERY** generated identifier in all queries (`build_shapes_query`, `build_totals_query`, and `build_preflight_check_query`) must begin with `ql_`:
-  * All `let` statement CTE variable names (e.g., `ql_reqs`, `ql_qrs`, `ql_joined`, `ql_known_db_by_shape_container`, `ql_single_db_shape_containers`, `ql_resolved_activities`, `ql_top_shapes`, `ql_base`, `ql_counts`, `ql_auth`).
-  * All computed intermediate column aliases and join keys (e.g., `ql_activity_id`, `ql_total_charge`, `ql_is_429`, `ql_db_name`, `ql_coll_name`, `ql_shape_id`, `ql_db_count`, `ql_resolved_db`).
-  * All projected final output columns (e.g., `ql_db_name`, `ql_coll_name`, `ql_shape_id`, `ql_sample_text`, `ql_execution_count`, `ql_total_ru`, `ql_max_ru`, `ql_total_returned_rows`, `ql_throttled_count`, `ql_window_total_ru`, `ql_attributed_total_ru`, `ql_total_executions`, `ql_min_time_generated`, `ql_dataplane_count`, `ql_auth_breakdown`).
+  * All `let` statement CTE variable names (e.g., `ql_reqs`, `ql_qrs`, `ql_joined`, `ql_known_db_by_shape_container`, `ql_single_db_shape_containers`, `ql_resolved_activities`, `ql_top_shapes`, `ql_top_shape_keys`, `ql_top_callers_per_shape`, `ql_base`, `ql_counts`, `ql_auth`).
+  * All computed intermediate column aliases and join keys (e.g., `ql_activity_id`, `ql_total_charge`, `ql_is_429`, `ql_db_name`, `ql_coll_name`, `ql_shape_id`, `ql_db_count`, `ql_resolved_db`, `ql_caller_id`, `ql_caller_type`, `ql_caller_ru`, `ql_top_callers`).
+  * All projected final output columns (e.g., `ql_db_name`, `ql_coll_name`, `ql_shape_id`, `ql_sample_text`, `ql_execution_count`, `ql_total_ru`, `ql_max_ru`, `ql_total_returned_rows`, `ql_throttled_count`, `ql_top_callers`, `ql_window_total_ru`, `ql_attributed_total_ru`, `ql_total_executions`, `ql_min_time_generated`, `ql_dataplane_count`, `ql_auth_breakdown`).
 * **Double Underscore Ban**: Generated identifiers must never start or end with double underscores (`__`).
 * **Automated Convention Enforcement**: Rather than testing against an incomplete reserved-word list, QueryLens enforces naming through an automated convention test (`test_kql_identifier_naming_conventions` in `tests/unit/test_discover_kql.py`):
   * Every generated `let` name, computed alias, and output column must match `^ql_[a-z0-9_]+$`.
@@ -263,3 +263,13 @@ To prevent container misattribution while still resolving omitted database names
 * **Scoped Key Matching**: `build_shapes_query` pre-computes known database names strictly grouped by `(ql_shape_id, ql_coll_name)` in `ql_known_db_by_shape_container`.
 * **Single Known Database Invariant**: In `ql_single_db_shape_containers`, resolution occurs only when a `(shape, container)` pair has exactly one distinct known database name in the requested time window (`ql_db_count == 1`).
 * **Container Preservation**: The resolution join matches on `(ql_shape_id, ql_coll_name)` and fills *only* `ql_db_name`. The container name is never overwritten. If an activity's container is empty, or if a `(shape, container)` pair has zero or multiple known database names, the database remains `"(unknown)"`.
+
+### 14. Server-Side Top 3 Caller Ranking and Dynamic Bag Packing (User Story 3)
+
+To identify microservices and client applications driving query shape spend without streaming unaggregated records:
+
+* **Bounded Caller Scope**: Caller aggregation joins `ql_resolved_activities` against `ql_top_shape_keys` (`inner join on ql_db_name, ql_coll_name, ql_shape_id`). Caller spend is calculated strictly for the top $N$ shapes, avoiding expensive workspace-wide caller grouping.
+* **Identifier Preference**: Resolves `ql_caller_id = iff(isnotempty(ql_aad_principal), ql_aad_principal, ql_client_ip)` and sets `ql_caller_type` to `"aad_principal"`, `"client_ip"`, or `"none"`. Executions lacking both identifiers are filtered out (`where isnotempty(ql_caller_id) and ql_caller_type != "none"`).
+* **Per-Shape Top 3 Packing**: Aggregates `ql_caller_ru = sum(ql_total_charge)`, orders by `ql_shape_id asc, ql_caller_ru desc`, and collects up to 3 callers per shape using `make_list(bag_pack("identifier", ql_caller_id, "caller_ru", ql_caller_ru, "identifier_type", ql_caller_type), 3)`.
+* **Left Outer Join & Empty Dynamic Array Default**: Left-outer-joins callers onto `ql_top_shapes` and projects `ql_top_callers = coalesce(ql_top_callers, dynamic([]))`, ensuring shapes without identifiable callers preserve empty lists without schema deviation.
+* **Strict Deserialization**: In `service.py`, `_parse_top_callers` accepts only a list of dictionaries with valid keys (`identifier`, `caller_ru`, `identifier_type`) and types. Any malformed shapes (flat arrays, nested pair arrays, > 3 callers, negative or excess RU share > 100%) raise `InternalConsistencyError`, handled cleanly by the CLI with exit code 1.

@@ -118,6 +118,7 @@
           "top_callers": {
             "type": "array",
             "maxItems": 3,
+            "description": "Optional list of up to 3 top callers ranked by RU share.",
             "items": {
               "type": "object",
               "required": [
