@@ -10,6 +10,7 @@ from querylens.cli import cli
 from tests.fixtures.synthetic_logs import (
     make_logs_query_result,
     make_sample_preflight_table,
+    make_sample_preflight_table_with_unscoped_aad_guid,
     make_sample_shapes_table,
     make_sample_totals_table,
 )
@@ -383,3 +384,74 @@ def test_cli_discover_empty_results_json(mock_get_client: MagicMock) -> None:
     # Validate against schema
     for field in schema["required"]:
         assert field in data
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_check_internal_consistency_error_exit_1(mock_get_client: MagicMock) -> None:
+    """Verify --check surfaces InternalConsistencyError cleanly and exits 1 with no traceback."""
+    mock_client = MagicMock()
+    mock_client.query_workspace.return_value = make_logs_query_result(
+        [make_sample_preflight_table_with_unscoped_aad_guid()]
+    )
+    mock_get_client.return_value = mock_client
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "discover",
+            "--workspace-id",
+            "12345678-1234-1234-1234-123456789abc",
+            "--check",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "Internal consistency error:" in result.output
+    assert "aadPrincipalId_g" in result.output
+    normalized = " ".join(result.output.split())
+    assert (
+        "This is a bug in querylens; please report it with the output of 'discover --check'"
+        in normalized
+    )
+    assert "Traceback" not in result.output
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_discover_internal_consistency_error_exit_1(mock_get_client: MagicMock) -> None:
+    """Verify discovery surfaces InternalConsistencyError cleanly and exits 1 with no traceback."""
+    mock_client = MagicMock()
+    shapes = [
+        {
+            "ql_db_name": "db",
+            "ql_coll_name": "coll",
+            "ql_shape_id": "shape_1",
+            "ql_sample_text": "SELECT * FROM c",
+            "ql_execution_count": 10,
+            "ql_total_ru": 1500.0,
+            "ql_max_ru": 150.0,
+            "ql_total_returned_rows": 100.0,
+            "ql_throttled_count": 0,
+        }
+    ]
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([make_sample_shapes_table(shapes=shapes)]),
+        make_logs_query_result(
+            [make_sample_totals_table(window_total_ru=1000.0, attributed_total_ru=1000.0)]
+        ),
+    ]
+    mock_get_client.return_value = mock_client
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc"],
+    )
+    assert result.exit_code == 1
+    assert "Internal consistency error:" in result.output
+    assert "query shape RU share exceeded 100.0%" in result.output
+    normalized = " ".join(result.output.split())
+    assert (
+        "This is a bug in querylens; please report it with the output of 'discover --check'"
+        in normalized
+    )
+    assert "Traceback" not in result.output

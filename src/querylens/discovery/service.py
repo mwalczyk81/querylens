@@ -16,6 +16,7 @@ from querylens.discovery.kql import (
 from querylens.discovery.models import (
     DiscoveredQueryShape,
     DiscoveryOptions,
+    InternalConsistencyError,
     PreflightCheckReport,
     TelemetryMisconfigurationError,
     WorkloadDiscoverySummary,
@@ -140,11 +141,11 @@ def run_discovery(
                         ru_share = 100.0
                     else:
                         msg = (
-                            f"Internal error: query shape RU share exceeded 100.0%: "
+                            f"query shape RU share exceeded 100.0%: "
                             f"{ru_share:.2f}% ({tot_ru}/{window_total_ru}). "
                             "Shape RU cannot exceed total window RU."
                         )
-                        raise ValueError(msg)
+                        raise InternalConsistencyError(msg)
             else:
                 ru_share = 0.0
 
@@ -210,18 +211,19 @@ def _compute_coverage_ratio(numerator: int, denominator: int, field_name: str) -
         Coverage ratio between 0.0 and 1.0.
 
     Raises:
-        ValueError: If numerator exceeds denominator, indicating an internal query scoping bug.
+        InternalConsistencyError: If numerator exceeds denominator,
+            indicating an internal query scoping bug.
     """
     if denominator == 0:
         return 0.0
     ratio = numerator / denominator
     if ratio > 1.0:
         msg = (
-            f"Internal error: field coverage ratio for '{field_name}' "
+            f"field coverage ratio for '{field_name}' "
             f"exceeded 1.0 ({numerator}/{denominator} = {ratio:.4f}). "
             "Population count must not exceed category row count."
         )
-        raise ValueError(msg)
+        raise InternalConsistencyError(msg)
     return ratio
 
 

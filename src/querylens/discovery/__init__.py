@@ -6,4 +6,8 @@ and cost ranking over Cosmos DB diagnostic telemetry in Azure Log Analytics.
 
 from typing import Final
 
-__all__: Final[list[str]] = []
+from querylens.discovery.models import InternalConsistencyError
+
+__all__: Final[list[str]] = [
+    "InternalConsistencyError",
+]

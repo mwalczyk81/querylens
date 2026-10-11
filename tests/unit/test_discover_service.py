@@ -8,6 +8,7 @@ import pytest
 
 from querylens.discovery.models import (
     DiscoveryOptions,
+    InternalConsistencyError,
     TelemetryMisconfigurationError,
 )
 from querylens.discovery.service import run_discovery, run_preflight_check
@@ -269,20 +270,21 @@ def test_run_discovery_with_empty_database_and_container() -> None:
 
 
 def test_run_preflight_check_unscoped_coverage_ratio_exceeds_one_raises_error() -> None:
-    """Verify run_preflight_check raises ValueError when population count exceeds category count."""
+    """Verify run_preflight_check raises InternalConsistencyError when population exceeds total."""
     mock_client = MagicMock()
     preflight_table = make_sample_preflight_table_with_unscoped_aad_guid()
     mock_client.query_workspace.return_value = make_logs_query_result([preflight_table])
 
     options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
     with pytest.raises(
-        ValueError, match="field coverage ratio for 'aadPrincipalId_g' exceeded 1.0"
+        InternalConsistencyError,
+        match="field coverage ratio for 'aadPrincipalId_g' exceeded 1.0",
     ):
         run_preflight_check(options=options, client=mock_client)
 
 
 def test_run_preflight_check_queryruntime_coverage_ratio_exceeds_one_raises_error() -> None:
-    """Verify run_preflight_check raises ValueError when queryruntime field coverage exceeds 1.0."""
+    """Verify run_preflight_check raises error when queryruntime coverage > 1.0."""
     mock_client = MagicMock()
     preflight_table = make_sample_preflight_table(
         queryruntime_count=100,
@@ -292,12 +294,14 @@ def test_run_preflight_check_queryruntime_coverage_ratio_exceeds_one_raises_erro
     mock_client.query_workspace.return_value = make_logs_query_result([preflight_table])
 
     options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
-    with pytest.raises(ValueError, match="field coverage ratio for 'querytext_s' exceeded 1.0"):
+    with pytest.raises(
+        InternalConsistencyError, match="field coverage ratio for 'querytext_s' exceeded 1.0"
+    ):
         run_preflight_check(options=options, client=mock_client)
 
 
 def test_run_discovery_ru_share_pct_exceeds_100_raises_error() -> None:
-    """Verify run_discovery raises ValueError when shape total RU exceeds window total RU."""
+    """Verify run_discovery raises InternalConsistencyError when shape RU exceeds window RU."""
     mock_client = MagicMock()
     shapes = [
         {
@@ -323,7 +327,7 @@ def test_run_discovery_ru_share_pct_exceeds_100_raises_error() -> None:
     ]
 
     options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
-    with pytest.raises(ValueError, match="query shape RU share exceeded 100.0%"):
+    with pytest.raises(InternalConsistencyError, match="query shape RU share exceeded 100.0%"):
         run_discovery(options=options, client=mock_client)
 
 

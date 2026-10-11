@@ -21,6 +21,7 @@ from querylens.discovery.kql import (
 from querylens.discovery.models import (
     DiscoveryOptions,
     DiscoveryValidationError,
+    InternalConsistencyError,
     TelemetryMisconfigurationError,
 )
 from querylens.discovery.service import run_discovery
@@ -164,6 +165,12 @@ def discover(
             else:
                 render_check_console_report(check_report)
             sys.exit(0)
+        except InternalConsistencyError as err:
+            err_console.print(
+                f"[bold red]Internal consistency error:[/bold red] {err}\n"
+                "This is a bug in querylens; please report it with the output of 'discover --check'"
+            )
+            sys.exit(1)
         except ClientAuthenticationError as err:
             err_console.print(f"[bold red]Authentication Error:[/bold red] {err}")
             sys.exit(5)
@@ -191,6 +198,12 @@ def discover(
             render_discover_console_report(summary, show_text=options.show_text)
         sys.exit(0)
 
+    except InternalConsistencyError as err:
+        err_console.print(
+            f"[bold red]Internal consistency error:[/bold red] {err}\n"
+            "This is a bug in querylens; please report it with the output of 'discover --check'"
+        )
+        sys.exit(1)
     except TelemetryMisconfigurationError as err:
         err_console.print(f"[bold red]Error:[/bold red] {err}")
         sys.exit(1)

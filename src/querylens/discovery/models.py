@@ -26,6 +26,10 @@ class DiscoveryAuthError(PermissionError):
     """Raised when authentication or RBAC authorization fails."""
 
 
+class InternalConsistencyError(RuntimeError):
+    """Raised when an internal mathematical invariant (coverage ratio, RU share) is violated."""
+
+
 # --- Validation Helpers ---
 
 ACCOUNT_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9][-a-zA-Z0-9]{1,42}[a-zA-Z0-9]$")
