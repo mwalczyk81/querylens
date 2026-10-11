@@ -48,8 +48,13 @@ def test_build_shapes_query_callers_ranking_and_packing() -> None:
     assert '"aad_principal"' in query
     assert '"client_ip"' in query
     assert 'where isnotempty(ql_caller_id) and ql_caller_type != "none"' in query
-    # Ordered by shape then caller RU descending
-    assert "order by ql_shape_id asc, ql_caller_ru desc" in query
+    # Ordered by partition keys, caller RU descending, and identifier tie-breaker
+    assert (
+        "order by ql_db_name asc, ql_coll_name asc, ql_shape_id asc, "
+        "ql_caller_ru desc, ql_caller_id asc" in query
+    )
+    assert "serialize ql_caller_rank = row_number(" in query
+    assert "where ql_caller_rank <= 3" in query
     # Bounded to at most 3 callers per shape
     assert "bag_pack(" in query
     assert '"identifier", ql_caller_id' in query

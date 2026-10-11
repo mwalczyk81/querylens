@@ -556,6 +556,43 @@ def test_run_discovery_parses_top_callers_successfully() -> None:
     assert caller2.ru_share_pct == 30.0  # 150 / 500
 
 
+def test_run_discovery_callers_sorted_by_caller_ru_descending_with_identifier_tie_breaker() -> None:
+    """Verify parser sorts callers by caller_ru descending with identifier as tie-breaker."""
+    raw_callers = [
+        {"identifier": "b_client", "caller_ru": 100.0, "identifier_type": "client_ip"},
+        {"identifier": "a_client", "caller_ru": 100.0, "identifier_type": "client_ip"},
+        {"identifier": "top_client", "caller_ru": 300.0, "identifier_type": "client_ip"},
+    ]
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_123",
+            "ql_sample_text": "SELECT * FROM c",
+            "ql_execution_count": 10,
+            "ql_total_ru": 500.0,
+            "ql_max_ru": 50.0,
+            "ql_total_returned_rows": 20.0,
+            "ql_throttled_count": 0,
+            "ql_top_callers": raw_callers,
+        }
+    ]
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table(shapes=shapes)
+    totals_table = make_sample_totals_table(window_total_ru=1000.0, attributed_total_ru=500.0)
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    summary = run_discovery(options=options, client=mock_client)
+
+    shape = summary.results[0]
+    assert len(shape.top_callers) == 3
+    assert [c.identifier for c in shape.top_callers] == ["top_client", "a_client", "b_client"]
+
+
 def test_run_discovery_callers_flattened_list_raises_internal_consistency_error() -> None:
     """Verify strict parser rejects flattened caller list with InternalConsistencyError (T032)."""
     from tests.fixtures.synthetic_logs import (

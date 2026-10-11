@@ -143,15 +143,21 @@ let ql_top_callers_per_shape = ql_resolved_activities
 | where isnotempty(ql_caller_id) and ql_caller_type != "none"
 | summarize ql_caller_ru = sum(ql_total_charge)
   by ql_db_name, ql_coll_name, ql_shape_id, ql_caller_id, ql_caller_type
-| order by ql_shape_id asc, ql_caller_ru desc
+| order by ql_db_name asc, ql_coll_name asc, ql_shape_id asc, ql_caller_ru desc, ql_caller_id asc
+| serialize ql_caller_rank = row_number(
+    1,
+    ql_db_name != prev(ql_db_name)
+    or ql_coll_name != prev(ql_coll_name)
+    or ql_shape_id != prev(ql_shape_id)
+)
+| where ql_caller_rank <= 3
 | summarize
     ql_top_callers = make_list(
         bag_pack(
             "identifier", ql_caller_id,
             "caller_ru", ql_caller_ru,
             "identifier_type", ql_caller_type
-        ),
-        3
+        )
     )
   by ql_db_name, ql_coll_name, ql_shape_id;
 ql_top_shapes

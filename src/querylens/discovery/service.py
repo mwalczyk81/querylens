@@ -97,7 +97,7 @@ def _parse_top_callers(raw_callers: Any, shape_total_ru: float) -> list[CallerAt
             f"Top callers exceeded maximum of 3 callers per shape: got {len(parsed)}"
         )
 
-    callers: list[CallerAttribution] = []
+    caller_entries: list[tuple[float, str, CallerAttribution]] = []
     for item in parsed:
         if "identifier" not in item or "caller_ru" not in item or "identifier_type" not in item:
             missing = [k for k in ("identifier", "caller_ru", "identifier_type") if k not in item]
@@ -140,13 +140,16 @@ def _parse_top_callers(raw_callers: Any, shape_total_ru: float) -> list[CallerAt
         else:
             ru_share = 0.0
 
-        callers.append(
-            CallerAttribution(
-                identifier=raw_id.strip(),
-                ru_share_pct=ru_share,
-                identifier_type=raw_type,
-            )
+        attribution = CallerAttribution(
+            identifier=raw_id.strip(),
+            ru_share_pct=ru_share,
+            identifier_type=raw_type,
         )
+        caller_entries.append((caller_ru_float, raw_id.strip(), attribution))
+
+    # Sort deterministically: caller_ru descending (-ru), identifier ascending as tie-breaker
+    caller_entries.sort(key=lambda entry: (-entry[0], entry[1]))
+    callers = [entry[2] for entry in caller_entries]
 
     total_caller_shares = sum(c.ru_share_pct for c in callers)
     if total_caller_shares > 100.0 + CALLER_SHARE_TOLERANCE_PCT:
