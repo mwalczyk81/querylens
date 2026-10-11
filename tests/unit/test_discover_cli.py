@@ -665,3 +665,96 @@ def test_cli_discover_renders_callers_in_console_and_json(mock_get_client: Magic
     assert len(callers) == 2
     assert callers[0]["identifier"] == "00000000-0000-0000-0000-000000000001"
     assert callers[0]["ru_share_pct"] == 70.0
+
+
+def test_cli_discover_and_check_render_exact_absolute_window() -> None:
+    """Verify CLI reports exact absolute window in console and JSON with frozen clock."""
+    from datetime import UTC, datetime, tzinfo
+    from typing import Self
+    from unittest.mock import patch
+
+    from tests.fixtures.synthetic_logs import (
+        make_sample_preflight_table,
+        make_sample_shapes_table,
+        make_sample_totals_table,
+    )
+
+    frozen_now = datetime(2026, 10, 11, 15, 0, 0, tzinfo=UTC)
+
+    class FrozenClock(datetime):
+        @classmethod
+        def now(cls, tz: tzinfo | None = None) -> Self:
+            return cls(
+                frozen_now.year,
+                frozen_now.month,
+                frozen_now.day,
+                frozen_now.hour,
+                frozen_now.minute,
+                frozen_now.second,
+                tzinfo=UTC,
+            )
+
+    mock_client = MagicMock()
+    mock_client.query_workspace.side_effect = [
+        # discover console
+        make_logs_query_result([make_sample_shapes_table()]),
+        make_logs_query_result([make_sample_totals_table()]),
+        # discover json
+        make_logs_query_result([make_sample_shapes_table()]),
+        make_logs_query_result([make_sample_totals_table()]),
+        # check console
+        make_logs_query_result([make_sample_preflight_table()]),
+        # check json
+        make_logs_query_result([make_sample_preflight_table()]),
+    ]
+
+    with (
+        patch("querylens.discover_cli.get_logs_client", return_value=mock_client),
+        patch("querylens.discover_cli.datetime", FrozenClock),
+        patch("querylens.discovery.service.datetime", FrozenClock),
+    ):
+        runner = CliRunner()
+
+        # 1. Discover Console
+        res_disc = runner.invoke(
+            cli,
+            ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc"],
+            env={"COLUMNS": "200"},
+        )
+        assert res_disc.exit_code == 0
+        assert "2026-10-10 15:00 to 2026-10-11 15:00 UTC" in res_disc.output
+
+        # 2. Discover JSON
+        res_disc_json = runner.invoke(
+            cli,
+            ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc", "--json"],
+        )
+        assert res_disc_json.exit_code == 0
+        parsed_disc = json.loads(res_disc_json.output)
+        assert parsed_disc["window_start"] == "2026-10-10T15:00:00+00:00"
+        assert parsed_disc["window_end"] == "2026-10-11T15:00:00+00:00"
+
+        # 3. Check Console
+        res_check = runner.invoke(
+            cli,
+            ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc", "--check"],
+            env={"COLUMNS": "200"},
+        )
+        assert res_check.exit_code == 0
+        assert "2026-10-10 15:00 to 2026-10-11 15:00 UTC" in res_check.output
+
+        # 4. Check JSON
+        res_check_json = runner.invoke(
+            cli,
+            [
+                "discover",
+                "--workspace-id",
+                "12345678-1234-1234-1234-123456789abc",
+                "--check",
+                "--json",
+            ],
+        )
+        assert res_check_json.exit_code == 0
+        parsed_check = json.loads(res_check_json.output)
+        assert parsed_check["window_start"] == "2026-10-10T15:00:00+00:00"
+        assert parsed_check["window_end"] == "2026-10-11T15:00:00+00:00"

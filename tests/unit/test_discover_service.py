@@ -1,6 +1,7 @@
 """Unit tests for discovery service execution using synthetic LogsTable fixtures."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
+from typing import Self
 from unittest.mock import MagicMock
 from uuid import UUID
 
@@ -647,3 +648,81 @@ def test_run_discovery_callers_excess_ru_raises_internal_consistency_error() -> 
     options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
     with pytest.raises(InternalConsistencyError, match="Caller RU share exceeded 100.0%"):
         run_discovery(options=options, client=mock_client)
+
+
+def test_run_discovery_passes_exact_timespan_tuple_to_all_queries() -> None:
+    """Verify run_discovery computes fixed window once and passes timespan tuple to all queries."""
+    from unittest.mock import patch
+
+    fixed_now = datetime(2026, 10, 11, 14, 30, 0, tzinfo=UTC)
+
+    class FixedClock(datetime):
+        @classmethod
+        def now(cls, tz: tzinfo | None = None) -> Self:
+            return cls(2026, 10, 11, 14, 30, 0, tzinfo=UTC)
+
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table()
+    totals_table = make_sample_totals_table(window_total_ru=1000.0, attributed_total_ru=550.0)
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(
+        workspace_id=UUID("12345678-1234-1234-1234-123456789abc"),
+        time_window=timedelta(hours=2),
+    )
+
+    with patch("querylens.discovery.service.datetime", FixedClock):
+        summary = run_discovery(options=options, client=mock_client)
+
+    expected_start = fixed_now - timedelta(hours=2)
+    expected_end = fixed_now
+    expected_timespan = (expected_start, expected_end)
+
+    assert mock_client.query_workspace.call_count == 2
+    # Check Query 1 (shapes) received the exact absolute timespan tuple
+    call1_kwargs = mock_client.query_workspace.call_args_list[0].kwargs
+    assert call1_kwargs["timespan"] == expected_timespan
+    # Check Query 2 (totals) received the exact same absolute timespan tuple
+    call2_kwargs = mock_client.query_workspace.call_args_list[1].kwargs
+    assert call2_kwargs["timespan"] == expected_timespan
+
+    # Verify summary reflects the exact fixed absolute window
+    assert summary.window_start == expected_start
+    assert summary.window_end == expected_end
+
+
+def test_run_preflight_check_passes_exact_timespan_tuple() -> None:
+    """Verify run_preflight_check passes absolute timespan tuple and reflects it in the report."""
+    from unittest.mock import patch
+
+    fixed_now = datetime(2026, 10, 11, 14, 30, 0, tzinfo=UTC)
+
+    class FixedClock(datetime):
+        @classmethod
+        def now(cls, tz: tzinfo | None = None) -> Self:
+            return cls(2026, 10, 11, 14, 30, 0, tzinfo=UTC)
+
+    mock_client = MagicMock()
+    preflight_table = make_sample_preflight_table()
+    mock_client.query_workspace.return_value = make_logs_query_result([preflight_table])
+
+    options = DiscoveryOptions(
+        workspace_id=UUID("12345678-1234-1234-1234-123456789abc"),
+        time_window=timedelta(hours=4),
+    )
+
+    with patch("querylens.discovery.service.datetime", FixedClock):
+        report = run_preflight_check(options=options, client=mock_client)
+
+    expected_start = fixed_now - timedelta(hours=4)
+    expected_end = fixed_now
+    expected_timespan = (expected_start, expected_end)
+
+    assert mock_client.query_workspace.call_count == 1
+    call_kwargs = mock_client.query_workspace.call_args.kwargs
+    assert call_kwargs["timespan"] == expected_timespan
+    assert report.window_start == expected_start
+    assert report.window_end == expected_end

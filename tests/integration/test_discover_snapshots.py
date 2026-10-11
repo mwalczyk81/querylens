@@ -33,6 +33,7 @@ class TestDiscoverSnapshots:
     # Force legacy_windows=False so Rich renders deterministic unicode box styling
     # (rounded panels, heavy-head tables) identically across Windows and Linux CI runners.
     @patch("rich.console.detect_legacy_windows", lambda: False)
+    @patch("querylens.discover_cli.datetime", FrozenDatetime)
     @patch("querylens.discovery.service.datetime", FrozenDatetime)
     @patch("querylens.discover_cli.get_logs_client")
     def test_discover_console_table_snapshot(
@@ -60,6 +61,7 @@ class TestDiscoverSnapshots:
         assert "ecommerce" in result.output
         assert result.output == snapshot
 
+    @patch("querylens.discover_cli.datetime", FrozenDatetime)
     @patch("querylens.discovery.service.datetime", FrozenDatetime)
     @patch("querylens.discover_cli.get_logs_client")
     def test_discover_json_snapshot(
@@ -89,6 +91,7 @@ class TestDiscoverSnapshots:
     # Force legacy_windows=False so Rich renders deterministic unicode box styling
     # (rounded panels, heavy-head tables) identically across Windows and Linux CI runners.
     @patch("rich.console.detect_legacy_windows", lambda: False)
+    @patch("querylens.discover_cli.datetime", FrozenDatetime)
     @patch("querylens.discovery.service.datetime", FrozenDatetime)
     @patch("querylens.discover_cli.get_logs_client")
     def test_check_console_report_snapshot(
@@ -111,6 +114,7 @@ class TestDiscoverSnapshots:
         assert "Log Analytics Diagnostic Preflight Check" in result.output
         assert result.output == snapshot
 
+    @patch("querylens.discover_cli.datetime", FrozenDatetime)
     @patch("querylens.discovery.service.datetime", FrozenDatetime)
     @patch("querylens.discover_cli.get_logs_client")
     def test_check_json_snapshot(

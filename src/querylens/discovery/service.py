@@ -154,6 +154,9 @@ def _parse_top_callers(raw_callers: Any, shape_total_ru: float) -> list[CallerAt
 def run_discovery(
     options: DiscoveryOptions,
     client: LogsQueryClient | None = None,
+    *,
+    window_start: datetime | None = None,
+    window_end: datetime | None = None,
 ) -> WorkloadDiscoverySummary:
     """Execute query cost discovery against an Azure Log Analytics workspace.
 
@@ -164,6 +167,8 @@ def run_discovery(
     Args:
         options: Validated DiscoveryOptions.
         client: Optional injected LogsQueryClient for testing without network calls.
+        window_start: Optional explicit window start time. Defaults to window_end - time_window.
+        window_end: Optional explicit window end time. Defaults to now (UTC).
 
     Returns:
         Populated WorkloadDiscoverySummary.
@@ -178,15 +183,18 @@ def run_discovery(
     shapes_kql = build_shapes_query(top_n=options.top_n, account_filter=options.account_filter)
     totals_kql = build_totals_query(account_filter=options.account_filter)
 
-    now = datetime.now(UTC)
-    window_start = now - options.time_window
-    window_end = now
+    if window_end is None:
+        window_end = datetime.now(UTC)
+    if window_start is None:
+        window_start = window_end - options.time_window
+
+    timespan = (window_start, window_end)
 
     # Execute Query 1: Top Shapes
     shapes_res = client.query_workspace(
         workspace_id=str(options.workspace_id),
         query=shapes_kql,
-        timespan=options.time_window,
+        timespan=timespan,
         server_timeout=options.server_timeout_seconds,
     )
     shapes_tables = (
@@ -199,7 +207,7 @@ def run_discovery(
     totals_res = client.query_workspace(
         workspace_id=str(options.workspace_id),
         query=totals_kql,
-        timespan=options.time_window,
+        timespan=timespan,
         server_timeout=options.server_timeout_seconds,
     )
     totals_tables = (
@@ -345,6 +353,9 @@ def _compute_coverage_ratio(numerator: int, denominator: int, field_name: str) -
 def run_preflight_check(
     options: DiscoveryOptions,
     client: LogsQueryClient | None = None,
+    *,
+    window_start: datetime | None = None,
+    window_end: datetime | None = None,
 ) -> PreflightCheckReport:
     """Execute preflight diagnostic telemetry check against target Log Analytics workspace.
 
@@ -355,21 +366,27 @@ def run_preflight_check(
     Args:
         options: Validated DiscoveryOptions configuration.
         client: Optional injected LogsQueryClient instance for testing.
+        window_start: Optional explicit window start time. Defaults to window_end - time_window.
+        window_end: Optional explicit window end time. Defaults to now (UTC).
 
     Returns:
         PreflightCheckReport containing quantitative telemetry health summary.
     """
     logs_client = client or LogsQueryClient(credential=DefaultAzureCredential())
 
-    window_end = datetime.now(UTC)
-    window_start = window_end - options.time_window
+    if window_end is None:
+        window_end = datetime.now(UTC)
+    if window_start is None:
+        window_start = window_end - options.time_window
+
+    timespan = (window_start, window_end)
 
     check_kql = build_preflight_check_query(account_filter=options.account_filter)
 
     res = logs_client.query_workspace(
         workspace_id=str(options.workspace_id),
         query=check_kql,
-        timespan=options.time_window,
+        timespan=timespan,
         server_timeout=options.server_timeout_seconds,
     )
     tables = (

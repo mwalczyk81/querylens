@@ -1,7 +1,7 @@
 """CLI command handler for querylens discover."""
 
 import sys
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -202,6 +202,10 @@ def discover(
         click.echo(totals_kql)
         sys.exit(0)
 
+    # Compute absolute evaluation window once per command run
+    window_end = datetime.now(UTC)
+    window_start = window_end - options.time_window
+
     # Check mode handler (stubbed for US2 implementation)
     if options.check_only:
         # Handled in Phase 4 / US2
@@ -211,7 +215,9 @@ def discover(
 
         try:
             client = get_logs_client()
-            check_report = run_preflight_check(options, client=client)
+            check_report = run_preflight_check(
+                options, client=client, window_start=window_start, window_end=window_end
+            )
             if options.json_output:
                 click.echo(serialize_check_json(check_report))
             else:
@@ -242,7 +248,9 @@ def discover(
     # Standard discovery execution
     try:
         client = get_logs_client()
-        summary = run_discovery(options=options, client=client)
+        summary = run_discovery(
+            options=options, client=client, window_start=window_start, window_end=window_end
+        )
 
         if options.json_output:
             click.echo(serialize_discovery_json(summary, show_text=options.show_text))
