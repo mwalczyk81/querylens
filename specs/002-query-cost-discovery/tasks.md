@@ -112,7 +112,7 @@
 - [x] T036 [US3] Implement query text truncation and caller rendering in src/querylens/report/discover_console.py (formatting top 3 callers with RU shares, and truncating `sample_query_text` to 200 characters unless `show_text=True`) and query text omission in src/querylens/report/discover_json.py (omitting `sample_query_text` from output dictionary unless `show_text=True`, and serializing `top_callers`)
 - [x] T037 [US3] Wire `--show-text` flag into src/querylens/discover_cli.py propagating option through DiscoveryOptions to console and JSON formatters
 
-**Checkpoint**: All three user stories are now complete, with caller attribution and privacy invariants enforced. (Completed: live gate for US3 passed on real workspace at commit `2049614`; subsequent optimization `materialize(ql_resolved_activities)` in `build_shapes_query` flagged for final live re-run)
+**Checkpoint**: All three user stories are now complete, with caller attribution and privacy invariants enforced. Pending: live gate for US3 (callers) and the materialize(ql_resolved_activities) change will run at the final commit.
 
 ---
 
@@ -126,6 +126,7 @@
 - [x] T041 Verify test coverage threshold >= 85% across all discovery and report modules using uv run pytest --cov=querylens --cov-fail-under=85
 - [x] T042 [P] Run static analysis and linting checks using uv run ruff check src tests, uv run ruff format --check src tests, and uv run pyrefly check
 - [x] T043 Run full pre-commit pipeline across all repository files using uv run pre-commit run --all-files
+- [ ] T044 Run docs/live-gate.md at the final commit (callers, materialize change) and record the tested commit SHA.
 
 ---
 
@@ -163,7 +164,7 @@
 - **Phase 3 (US1)**: Test tasks T009, T010, T011, T012, T013, and T014 can all be written in parallel before implementation tasks T015–T020.
 - **Phase 4 (US2)**: Test tasks T022, T023, and T024 can be written in parallel before implementation tasks T025–T028.
 - **Phase 5 (US3)**: Test tasks T030, T031, T032, and T033 can be written in parallel before implementation tasks T034–T037.
-- **Phase 6**: Snapshot test T038, documentation T039, README/CONTRIBUTING T040, and linting T042 can be executed in parallel before final gates T041 and T043.
+- **Phase 6**: Snapshot test T038, documentation T039, README/CONTRIBUTING T040, and linting T042 can be executed in parallel before final gates T041, T043, and live gate T044.
 
 ---
 
@@ -220,4 +221,4 @@ Task: "Author query text privacy CLI unit tests in tests/unit/test_discover_cli.
 2. **Increment 1 (MVP)**: Add User Story 1 → Test independently → CLI `querylens discover` functional with `--print-kql` and Rich/JSON output → Validate on Azure portal gate.
 3. **Increment 2**: Add User Story 2 → Test independently → CLI `querylens discover --check` available for preflight workspace validation → Validate on Azure preflight gate.
 4. **Increment 3**: Add User Story 3 → Test independently → Extend `build_shapes_query` with caller ranking, update golden snapshots, parse callers, and activate `--show-text` privacy gates.
-5. **Increment 4**: Polish → Snapshot tests, README and CONTRIBUTING updates, 85% coverage gate, pre-commit clean.
+5. **Increment 4**: Polish → Snapshot tests, README and CONTRIBUTING updates, 85% coverage gate, pre-commit clean, and final live workspace qualification gate (T044).
