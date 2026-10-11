@@ -201,7 +201,7 @@ def make_sample_preflight_table(
         "ql_auth_breakdown",
     ]
     auth: Any = (
-        auth_breakdown if auth_breakdown is not None else [["AAD", 1200], ["PrimaryMasterKey", 300]]
+        auth_breakdown if auth_breakdown is not None else {"AAD": 1200, "PrimaryMasterKey": 300}
     )
     rows = [
         [
@@ -236,5 +236,5 @@ def make_sample_preflight_table_with_unscoped_aad_guid() -> LogsTable:
         has_aad_str=0,
         has_client_ip=1000,
         has_useragent=950,
-        auth_breakdown=[["AAD", 1000]],
+        auth_breakdown={"AAD": 1000},
     )

@@ -331,10 +331,11 @@ def test_run_discovery_ru_share_pct_exceeds_100_raises_error() -> None:
         run_discovery(options=options, client=mock_client)
 
 
-def test_run_preflight_check_auth_breakdown_as_json_string_pairs() -> None:
-    """Verify run_preflight_check parses JSON-serialized list of auth pairs."""
+def test_run_preflight_check_auth_breakdown_as_dict() -> None:
+    """Verify run_preflight_check parses dict and JSON-serialized dict of auth counts."""
     mock_client = MagicMock()
-    json_pairs = '[["AAD", 900], ["PrimaryMasterKey", 100]]'
+    # (a) JSON-serialized dict
+    json_dict = '{"AadToken": 62135, "PrimaryMasterKey": 12511}'
     preflight_table = make_sample_preflight_table(
         dataplane_count=1000,
         queryruntime_count=200,
@@ -343,10 +344,48 @@ def test_run_preflight_check_auth_breakdown_as_json_string_pairs() -> None:
         has_aad_guid=900,
         has_client_ip=1000,
         has_useragent=950,
-        auth_breakdown=json_pairs,  # type: ignore[arg-type]
+        auth_breakdown=json_dict,  # type: ignore[arg-type]
     )
     mock_client.query_workspace.return_value = make_logs_query_result([preflight_table])
 
     options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
     report = run_preflight_check(options=options, client=mock_client)
-    assert report.auth_breakdown == {"AAD": 900, "PrimaryMasterKey": 100}
+    assert report.auth_breakdown == {"AadToken": 62135, "PrimaryMasterKey": 12511}
+
+
+def test_run_preflight_check_auth_breakdown_flat_list_raises_error() -> None:
+    """Verify (b) a flat list like ['AadToken', 62135, ...] raises InternalConsistencyError."""
+    mock_client = MagicMock()
+    flat_list = ["AadToken", 62135, "PrimaryMasterKey", 12511]
+    preflight_table = make_sample_preflight_table(
+        dataplane_count=1500,
+        queryruntime_count=400,
+        auth_breakdown=flat_list,  # type: ignore[arg-type]
+    )
+    mock_client.query_workspace.return_value = make_logs_query_result([preflight_table])
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    with pytest.raises(
+        InternalConsistencyError,
+        match="Unexpected auth breakdown shape: expected dict of auth type to count",
+    ):
+        run_preflight_check(options=options, client=mock_client)
+
+
+def test_run_preflight_check_auth_breakdown_list_of_pairs_raises_error() -> None:
+    """Verify (c) a list of pairs like [['AadToken', 62135]] raises InternalConsistencyError."""
+    mock_client = MagicMock()
+    pair_list = [["AadToken", 62135], ["PrimaryMasterKey", 12511]]
+    preflight_table = make_sample_preflight_table(
+        dataplane_count=1500,
+        queryruntime_count=400,
+        auth_breakdown=pair_list,  # type: ignore[arg-type]
+    )
+    mock_client.query_workspace.return_value = make_logs_query_result([preflight_table])
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    with pytest.raises(
+        InternalConsistencyError,
+        match="Unexpected auth breakdown shape: expected dict of auth type to count",
+    ):
+        run_preflight_check(options=options, client=mock_client)

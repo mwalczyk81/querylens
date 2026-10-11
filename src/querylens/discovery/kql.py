@@ -193,7 +193,7 @@ let ql_auth = toscalar(
     ql_base
     | where Category == "DataPlaneRequests" and isnotempty({AUTH_TOKEN_TYPE_EXPR})
     | summarize ql_count = count() by ql_auth_type = {AUTH_TOKEN_TYPE_EXPR}
-    | summarize make_list(pack_array(ql_auth_type, ql_count))
+    | summarize make_bag(bag_pack(ql_auth_type, ql_count))
 );
 ql_counts
 | extend ql_auth_breakdown = ql_auth"""

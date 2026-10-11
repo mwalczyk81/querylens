@@ -318,20 +318,31 @@ def run_preflight_check(
     }
 
     auth_breakdown: dict[str, int] = {}
-    if isinstance(raw_auth, str):
-        try:
-            parsed = json.loads(raw_auth)
-        except (ValueError, TypeError):
-            parsed = None
-    else:
-        parsed = raw_auth
+    if raw_auth is not None:
+        if isinstance(raw_auth, str):
+            if raw_auth.strip():
+                try:
+                    parsed = json.loads(raw_auth)
+                except (ValueError, TypeError) as err:
+                    raise InternalConsistencyError(
+                        f"Failed to parse auth breakdown JSON: {err}"
+                    ) from err
+            else:
+                parsed = {}
+        else:
+            parsed = raw_auth
 
-    if isinstance(parsed, list):
-        for item in parsed:
-            if isinstance(item, (list, tuple)) and len(item) >= 2:
-                auth_breakdown[str(item[0])] = int(item[1] or 0)
-    elif isinstance(parsed, dict):
-        auth_breakdown = {str(k): int(v or 0) for k, v in parsed.items()}
+        if isinstance(parsed, dict):
+            try:
+                auth_breakdown = {str(k): int(v) for k, v in parsed.items()}
+            except (ValueError, TypeError) as err:
+                raise InternalConsistencyError(f"Invalid count in auth breakdown: {err}") from err
+        else:
+            msg = (
+                "Unexpected auth breakdown shape: expected dict of auth type to count, "
+                f"got {type(parsed).__name__}: {parsed!r}"
+            )
+            raise InternalConsistencyError(msg)
 
     retention_warning = False
     if earliest_record is not None:

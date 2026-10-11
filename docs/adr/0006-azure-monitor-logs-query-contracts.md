@@ -242,3 +242,12 @@ To make identifier collisions structurally impossible across all Azure Monitor v
   * Every generated `let` name, computed alias, and output column must match `^ql_[a-z0-9_]+$`.
   * An explicit minimal allowlist is permitted strictly for external Azure schema columns referenced by the queries: `{"Category", "ResourceProvider", "TimeGenerated", "_ResourceId"}`.
 * **Domain Model Decoupling**: The `ql_` prefix is strictly internal to the KQL generation and row-mapping service layer. Public domain entities (`DiscoveredQueryShape`, `PreflightCheckReport`) and JSON contract schemas preserve clean, unprefixed field names (`database`, `container`, `total_ru`, `execution_count`).
+
+### 12. Authentication Token Breakdown Dynamic Packaging and Strict Deserialization
+
+During live workspace qualification, aggregating authentication token types using `make_list(pack_array(ql_auth_type, ql_count))` failed because the Azure Monitor service flattened the nested list of pairs into a single flat array (e.g. `['AadToken', 62135, 'PrimaryMasterKey', 12511]`), which caused pair-oriented parsers to silently drop all records.
+
+To guarantee accurate aggregation and robust parsing:
+
+* **KQL Property Bag Aggregation**: `build_preflight_check_query` packages the distribution using `make_bag(bag_pack(ql_auth_type, ql_count))`. This generates a native KQL property bag that deserializes directly into a key-value mapping (`dict[str, int]`).
+* **Strict Shape Enforcement**: `run_preflight_check` in `service.py` strictly validates the parsed shape: it accepts only a dictionary mapping authentication types to integer counts. Any unexpected response shape (including flat lists or list of pairs) immediately raises `InternalConsistencyError` with a descriptive message rather than silently returning an empty distribution.

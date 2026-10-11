@@ -32,7 +32,7 @@
       ql_base
       | where Category == "DataPlaneRequests" and isnotempty(coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), ""))
       | summarize ql_count = count() by ql_auth_type = coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), "")
-      | summarize make_list(pack_array(ql_auth_type, ql_count))
+      | summarize make_bag(bag_pack(ql_auth_type, ql_count))
   );
   ql_counts
   | extend ql_auth_breakdown = ql_auth
@@ -73,7 +73,7 @@
       ql_base
       | where Category == "DataPlaneRequests" and isnotempty(coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), ""))
       | summarize ql_count = count() by ql_auth_type = coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), "")
-      | summarize make_list(pack_array(ql_auth_type, ql_count))
+      | summarize make_bag(bag_pack(ql_auth_type, ql_count))
   );
   ql_counts
   | extend ql_auth_breakdown = ql_auth

@@ -66,9 +66,7 @@ def test_build_preflight_check_query_default() -> None:
     assert 'ql_has_client_ip = countif(\n        Category == "DataPlaneRequests"' in query
     assert 'ql_has_useragent = countif(\n        Category == "DataPlaneRequests"' in query
     assert '| where Category == "DataPlaneRequests" and isnotempty(' in query
-    assert "make_list(pack_array(ql_auth_type, ql_count))" in query
-    assert "make_bag" not in query
-    assert "bag_pack" not in query
+    assert "make_bag(bag_pack(ql_auth_type, ql_count))" in query
     assert "_ResourceId endswith" not in query
 
 
