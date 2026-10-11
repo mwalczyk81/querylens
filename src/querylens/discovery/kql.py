@@ -64,47 +64,47 @@ def build_shapes_query(top_n: int = 20, account_filter: str | None = None) -> st
     """
     acct_clause = _build_account_clause(account_filter)
 
-    return f"""let reqs = AzureDiagnostics
+    return f"""let ql_reqs = AzureDiagnostics
     | where Category == "DataPlaneRequests" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
 {acct_clause}    | summarize
-        total_charge = sum(todouble({REQUEST_CHARGE_EXPR})),
-        is_429 = max(iff({STATUS_CODE_EXPR} == "429", 1, 0)),
-        client_ip = take_any({CLIENT_IP_EXPR}),
-        aad_principal = take_any({AAD_PRINCIPAL_EXPR})
+        ql_total_charge = sum(todouble({REQUEST_CHARGE_EXPR})),
+        ql_is_429 = max(iff({STATUS_CODE_EXPR} == "429", 1, 0)),
+        ql_client_ip = take_any({CLIENT_IP_EXPR}),
+        ql_aad_principal = take_any({AAD_PRINCIPAL_EXPR})
       by activityId_g = {ACTIVITY_ID_EXPR};
-let queries = AzureDiagnostics
+let ql_qrs = AzureDiagnostics
     | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
 {acct_clause}    | extend
         db_name = {DATABASE_NAME_EXPR},
         coll_name = {COLLECTION_NAME_EXPR},
-        shape_sig = {SHAPE_SIGNATURE_EXPR},
-        raw_text = {QUERY_TEXT_EXPR},
-        returned_count = todouble({NUMBER_OF_ROWS_RETURNED_EXPR})
-    | extend shape_key = iff(isnotempty(shape_sig), shape_sig, hash_sha256(raw_text))
+        ql_shape_sig = {SHAPE_SIGNATURE_EXPR},
+        ql_raw_text = {QUERY_TEXT_EXPR},
+        ql_returned_count = todouble({NUMBER_OF_ROWS_RETURNED_EXPR})
+    | extend ql_shape_key = iff(isnotempty(ql_shape_sig), ql_shape_sig, hash_sha256(ql_raw_text))
     | summarize
         db_name = take_any(db_name),
         coll_name = take_any(coll_name),
-        shape_id = take_any(shape_key),
-        sample_query_text = take_any(raw_text),
-        returned_rows = sum(returned_count)
+        shape_id = take_any(ql_shape_key),
+        sample_query_text = take_any(ql_raw_text),
+        ql_returned_rows = sum(ql_returned_count)
       by activityId_g = {ACTIVITY_ID_EXPR};
-let joined = materialize(
-    queries
-    | join kind=inner reqs on activityId_g
+let ql_joined = materialize(
+    ql_qrs
+    | join kind=inner ql_reqs on activityId_g
 );
-let top_shapes = materialize(
-    joined
+let ql_top_shapes = materialize(
+    ql_joined
     | summarize
         execution_count = count(),
-        total_ru = sum(total_charge),
-        max_ru = max(total_charge),
-        total_returned_rows = sum(returned_rows),
-        throttled_count = sum(is_429),
+        total_ru = sum(ql_total_charge),
+        max_ru = max(ql_total_charge),
+        total_returned_rows = sum(ql_returned_rows),
+        throttled_count = sum(ql_is_429),
         sample_text = take_any(sample_query_text)
       by db_name, coll_name, shape_id
     | top {top_n} by total_ru desc
 );
-top_shapes
+ql_top_shapes
 | project
     db_name, coll_name, shape_id, sample_text,
     execution_count, total_ru, max_ru, total_returned_rows,
@@ -125,27 +125,27 @@ def build_totals_query(account_filter: str | None = None) -> str:
     """
     acct_clause = _build_account_clause(account_filter)
 
-    return f"""let reqs = materialize(
+    return f"""let ql_reqs = materialize(
     AzureDiagnostics
     | where Category == "DataPlaneRequests" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
 {acct_clause}    | summarize
-        total_charge = sum(todouble({REQUEST_CHARGE_EXPR})),
-        earliest_time = min(TimeGenerated)
+        ql_total_charge = sum(todouble({REQUEST_CHARGE_EXPR})),
+        ql_earliest_time = min(TimeGenerated)
       by activityId_g = {ACTIVITY_ID_EXPR}
 );
-let queries = AzureDiagnostics
+let ql_qrs = AzureDiagnostics
     | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
 {acct_clause}    | summarize by activityId_g = {ACTIVITY_ID_EXPR};
-let window_total = toscalar(reqs | summarize sum(total_charge));
-let min_time = toscalar(reqs | summarize min(earliest_time));
-queries
-| join kind=inner reqs on activityId_g
+let ql_window_total = toscalar(ql_reqs | summarize sum(ql_total_charge));
+let ql_min_time = toscalar(ql_reqs | summarize min(ql_earliest_time));
+ql_qrs
+| join kind=inner ql_reqs on activityId_g
 | summarize
-    attributed_total_ru = sum(total_charge),
+    attributed_total_ru = sum(ql_total_charge),
     total_executions = count()
 | extend
-    window_total_ru = window_total,
-    min_time_generated = min_time"""
+    window_total_ru = ql_window_total,
+    min_time_generated = ql_min_time"""
 
 
 def build_preflight_check_query(account_filter: str | None = None) -> str:
@@ -163,9 +163,9 @@ def build_preflight_check_query(account_filter: str | None = None) -> str:
     acct_clause = _build_account_clause(account_filter)
     acct_filter_line = f"\n{acct_clause.rstrip()}" if acct_clause else ""
 
-    return f"""let base = AzureDiagnostics
+    return f"""let ql_base = AzureDiagnostics
     | where ResourceProvider =~ "MICROSOFT.DOCUMENTDB"{acct_filter_line};
-let counts = base
+let ql_counts = ql_base
 | summarize
     dataplane_count = countif(Category == "DataPlaneRequests"),
     queryruntime_count = countif(Category == "QueryRuntimeStatistics"),
@@ -181,11 +181,11 @@ let counts = base
     has_aad_str = countif(isnotempty({AAD_PRINCIPAL_STR_EXPR})),
     has_client_ip = countif(isnotempty({CLIENT_IP_EXPR})),
     has_useragent = countif(isnotempty({USER_AGENT_EXPR}));
-let auth = toscalar(
-    base
+let ql_auth = toscalar(
+    ql_base
     | where isnotempty({AUTH_TOKEN_TYPE_EXPR})
     | summarize count() by auth_type = {AUTH_TOKEN_TYPE_EXPR}
     | summarize make_bag(bag_pack(auth_type, count_))
 );
-counts
-| extend auth_breakdown = auth"""
+ql_counts
+| extend auth_breakdown = ql_auth"""
