@@ -16,15 +16,23 @@
       ql_has_querytext = countif(
           Category == "QueryRuntimeStatistics" and isnotempty(coalesce(tostring(column_ifexists("querytext_s", "")), tostring(column_ifexists("QueryText_s", "")), tostring(column_ifexists("queryText_s", "")), ""))
       ),
-      ql_has_aad_guid = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))),
-      ql_has_aad_str = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_s", "")), tostring(column_ifexists("AadPrincipalId_s", "")), ""))),
-      ql_has_client_ip = countif(isnotempty(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), ""))),
-      ql_has_useragent = countif(isnotempty(coalesce(tostring(column_ifexists("userAgent_s", "")), tostring(column_ifexists("useragent_s", "")), tostring(column_ifexists("UserAgent_s", "")), "")));
+      ql_has_aad_guid = countif(
+          Category == "DataPlaneRequests" and isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))
+      ),
+      ql_has_aad_str = countif(
+          Category == "DataPlaneRequests" and isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_s", "")), tostring(column_ifexists("AadPrincipalId_s", "")), ""))
+      ),
+      ql_has_client_ip = countif(
+          Category == "DataPlaneRequests" and isnotempty(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), ""))
+      ),
+      ql_has_useragent = countif(
+          Category == "DataPlaneRequests" and isnotempty(coalesce(tostring(column_ifexists("userAgent_s", "")), tostring(column_ifexists("useragent_s", "")), tostring(column_ifexists("UserAgent_s", "")), ""))
+      );
   let ql_auth = toscalar(
       ql_base
-      | where isnotempty(coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), ""))
+      | where Category == "DataPlaneRequests" and isnotempty(coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), ""))
       | summarize ql_count = count() by ql_auth_type = coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), "")
-      | summarize make_bag(bag_pack(ql_auth_type, ql_count))
+      | summarize make_list(pack_array(ql_auth_type, ql_count))
   );
   ql_counts
   | extend ql_auth_breakdown = ql_auth
@@ -49,15 +57,23 @@
       ql_has_querytext = countif(
           Category == "QueryRuntimeStatistics" and isnotempty(coalesce(tostring(column_ifexists("querytext_s", "")), tostring(column_ifexists("QueryText_s", "")), tostring(column_ifexists("queryText_s", "")), ""))
       ),
-      ql_has_aad_guid = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))),
-      ql_has_aad_str = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_s", "")), tostring(column_ifexists("AadPrincipalId_s", "")), ""))),
-      ql_has_client_ip = countif(isnotempty(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), ""))),
-      ql_has_useragent = countif(isnotempty(coalesce(tostring(column_ifexists("userAgent_s", "")), tostring(column_ifexists("useragent_s", "")), tostring(column_ifexists("UserAgent_s", "")), "")));
+      ql_has_aad_guid = countif(
+          Category == "DataPlaneRequests" and isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))
+      ),
+      ql_has_aad_str = countif(
+          Category == "DataPlaneRequests" and isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_s", "")), tostring(column_ifexists("AadPrincipalId_s", "")), ""))
+      ),
+      ql_has_client_ip = countif(
+          Category == "DataPlaneRequests" and isnotempty(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), ""))
+      ),
+      ql_has_useragent = countif(
+          Category == "DataPlaneRequests" and isnotempty(coalesce(tostring(column_ifexists("userAgent_s", "")), tostring(column_ifexists("useragent_s", "")), tostring(column_ifexists("UserAgent_s", "")), ""))
+      );
   let ql_auth = toscalar(
       ql_base
-      | where isnotempty(coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), ""))
+      | where Category == "DataPlaneRequests" and isnotempty(coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), ""))
       | summarize ql_count = count() by ql_auth_type = coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), "")
-      | summarize make_bag(bag_pack(ql_auth_type, ql_count))
+      | summarize make_list(pack_array(ql_auth_type, ql_count))
   );
   ql_counts
   | extend ql_auth_breakdown = ql_auth

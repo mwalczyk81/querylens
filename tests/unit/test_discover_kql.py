@@ -55,16 +55,20 @@ def test_build_preflight_check_query_default() -> None:
     """Verify build_preflight_check_query creates valid preflight check KQL."""
     query = build_preflight_check_query()
     assert 'ResourceProvider =~ "MICROSOFT.DOCUMENTDB"' in query
-    assert "ql_dataplane_count = countif(Category == " in query
-    assert "ql_queryruntime_count = countif(Category == " in query
+    assert 'ql_dataplane_count = countif(Category == "DataPlaneRequests")' in query
+    assert 'ql_queryruntime_count = countif(Category == "QueryRuntimeStatistics")' in query
     assert "ql_earliest_time = min(TimeGenerated)" in query
     assert "ql_latest_time = max(TimeGenerated)" in query
-    assert "ql_has_shapesignature = countif(" in query
-    assert "ql_has_querytext = countif(" in query
-    assert "ql_has_aad_guid = countif(" in query
-    assert "ql_has_client_ip = countif(" in query
-    assert "ql_has_useragent = countif(" in query
-    assert "make_bag(bag_pack(ql_auth_type, ql_count))" in query
+    assert 'ql_has_shapesignature = countif(\n        Category == "QueryRuntimeStatistics"' in query
+    assert 'ql_has_querytext = countif(\n        Category == "QueryRuntimeStatistics"' in query
+    assert 'ql_has_aad_guid = countif(\n        Category == "DataPlaneRequests"' in query
+    assert 'ql_has_aad_str = countif(\n        Category == "DataPlaneRequests"' in query
+    assert 'ql_has_client_ip = countif(\n        Category == "DataPlaneRequests"' in query
+    assert 'ql_has_useragent = countif(\n        Category == "DataPlaneRequests"' in query
+    assert '| where Category == "DataPlaneRequests" and isnotempty(' in query
+    assert "make_list(pack_array(ql_auth_type, ql_count))" in query
+    assert "make_bag" not in query
+    assert "bag_pack" not in query
     assert "_ResourceId endswith" not in query
 
 

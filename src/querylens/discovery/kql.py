@@ -177,15 +177,23 @@ let ql_counts = ql_base
     ql_has_querytext = countif(
         Category == "QueryRuntimeStatistics" and isnotempty({QUERY_TEXT_EXPR})
     ),
-    ql_has_aad_guid = countif(isnotempty({AAD_PRINCIPAL_EXPR})),
-    ql_has_aad_str = countif(isnotempty({AAD_PRINCIPAL_STR_EXPR})),
-    ql_has_client_ip = countif(isnotempty({CLIENT_IP_EXPR})),
-    ql_has_useragent = countif(isnotempty({USER_AGENT_EXPR}));
+    ql_has_aad_guid = countif(
+        Category == "DataPlaneRequests" and isnotempty({AAD_PRINCIPAL_EXPR})
+    ),
+    ql_has_aad_str = countif(
+        Category == "DataPlaneRequests" and isnotempty({AAD_PRINCIPAL_STR_EXPR})
+    ),
+    ql_has_client_ip = countif(
+        Category == "DataPlaneRequests" and isnotempty({CLIENT_IP_EXPR})
+    ),
+    ql_has_useragent = countif(
+        Category == "DataPlaneRequests" and isnotempty({USER_AGENT_EXPR})
+    );
 let ql_auth = toscalar(
     ql_base
-    | where isnotempty({AUTH_TOKEN_TYPE_EXPR})
+    | where Category == "DataPlaneRequests" and isnotempty({AUTH_TOKEN_TYPE_EXPR})
     | summarize ql_count = count() by ql_auth_type = {AUTH_TOKEN_TYPE_EXPR}
-    | summarize make_bag(bag_pack(ql_auth_type, ql_count))
+    | summarize make_list(pack_array(ql_auth_type, ql_count))
 );
 ql_counts
 | extend ql_auth_breakdown = ql_auth"""
