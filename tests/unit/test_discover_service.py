@@ -423,3 +423,96 @@ def test_run_discovery_single_known_pair_shape_does_not_appear_twice() -> None:
     assert shape.total_ru == 500.0
     # No duplicate shape with (unknown) database
     assert not any(s.database == "(unknown)" for s in summary.results)
+
+
+def test_run_discovery_two_containers_one_known_database() -> None:
+    """Verify (4a) 1 shape on 2 containers: known container resolves, other stays (unknown)."""
+    from tests.fixtures.synthetic_logs import (
+        make_sample_shapes_table_two_containers_one_known_db,
+    )
+
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table_two_containers_one_known_db()
+    totals_table = make_sample_totals_table(
+        window_total_ru=1000.0,
+        attributed_total_ru=500.0,
+        total_executions=100,
+    )
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    summary = run_discovery(options=options, client=mock_client)
+
+    assert summary.discovered_query_count == 2
+    assert len(summary.results) == 2
+
+    # Known container resolved to its database
+    orders_shape = next(s for s in summary.results if s.container == "orders")
+    assert orders_shape.database == "ecommerce"
+    assert orders_shape.execution_count == 60
+
+    # Other container remains (unknown) database
+    items_shape = next(s for s in summary.results if s.container == "items")
+    assert items_shape.database == "(unknown)"
+    assert items_shape.execution_count == 40
+
+
+def test_run_discovery_one_container_two_known_databases() -> None:
+    """Verify (4b) 1 (shape, container) with 2 known dbs: unknown rows stay (unknown)."""
+    from tests.fixtures.synthetic_logs import (
+        make_sample_shapes_table_one_container_two_known_dbs,
+    )
+
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table_one_container_two_known_dbs()
+    totals_table = make_sample_totals_table(
+        window_total_ru=1000.0,
+        attributed_total_ru=500.0,
+        total_executions=100,
+    )
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    summary = run_discovery(options=options, client=mock_client)
+
+    assert summary.discovered_query_count == 3
+    assert len(summary.results) == 3
+
+    # Preserves both known databases and the unknown row stays (unknown)
+    dbs = {s.database for s in summary.results}
+    assert dbs == {"ecommerce_east", "ecommerce_west", "(unknown)"}
+    for s in summary.results:
+        assert s.container == "orders"
+
+
+def test_run_discovery_empty_container_database_stays_unknown() -> None:
+    """Verify (4d) when container is empty, database stays (unknown)."""
+    from tests.fixtures.synthetic_logs import (
+        make_sample_shapes_table_empty_container,
+    )
+
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table_empty_container()
+    totals_table = make_sample_totals_table(
+        window_total_ru=500.0,
+        attributed_total_ru=250.0,
+        total_executions=50,
+    )
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    summary = run_discovery(options=options, client=mock_client)
+
+    assert summary.discovered_query_count == 1
+    shape = summary.results[0]
+    assert shape.database == "(unknown)"
+    assert shape.container == "(unknown)"

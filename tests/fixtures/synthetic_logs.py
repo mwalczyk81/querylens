@@ -147,6 +147,93 @@ def make_sample_shapes_table_with_single_known_pair_resolution() -> LogsTable:
     return make_sample_shapes_table(shapes=shapes)
 
 
+def make_sample_shapes_table_two_containers_one_known_db() -> LogsTable:
+    """Create a sample Top Shapes table for 1 shape on 2 containers where only 1 has known db."""
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_multi_cont",
+            "ql_sample_text": "SELECT * FROM c WHERE c.active = true",
+            "ql_execution_count": 60,
+            "ql_total_ru": 300.0,
+            "ql_max_ru": 10.0,
+            "ql_total_returned_rows": 120.0,
+            "ql_throttled_count": 0,
+        },
+        {
+            "ql_db_name": "(unknown)",
+            "ql_coll_name": "items",
+            "ql_shape_id": "shape_multi_cont",
+            "ql_sample_text": "SELECT * FROM c WHERE c.active = true",
+            "ql_execution_count": 40,
+            "ql_total_ru": 200.0,
+            "ql_max_ru": 8.0,
+            "ql_total_returned_rows": 80.0,
+            "ql_throttled_count": 0,
+        },
+    ]
+    return make_sample_shapes_table(shapes=shapes)
+
+
+def make_sample_shapes_table_one_container_two_known_dbs() -> LogsTable:
+    """Create a sample Top Shapes table for 1 (shape, container) with 2 known dbs."""
+    shapes = [
+        {
+            "ql_db_name": "ecommerce_east",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_two_dbs",
+            "ql_sample_text": "SELECT * FROM c WHERE c.id = @id",
+            "ql_execution_count": 50,
+            "ql_total_ru": 250.0,
+            "ql_max_ru": 12.0,
+            "ql_total_returned_rows": 100.0,
+            "ql_throttled_count": 0,
+        },
+        {
+            "ql_db_name": "ecommerce_west",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_two_dbs",
+            "ql_sample_text": "SELECT * FROM c WHERE c.id = @id",
+            "ql_execution_count": 30,
+            "ql_total_ru": 150.0,
+            "ql_max_ru": 11.0,
+            "ql_total_returned_rows": 60.0,
+            "ql_throttled_count": 0,
+        },
+        {
+            "ql_db_name": "(unknown)",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_two_dbs",
+            "ql_sample_text": "SELECT * FROM c WHERE c.id = @id",
+            "ql_execution_count": 20,
+            "ql_total_ru": 100.0,
+            "ql_max_ru": 9.0,
+            "ql_total_returned_rows": 40.0,
+            "ql_throttled_count": 0,
+        },
+    ]
+    return make_sample_shapes_table(shapes=shapes)
+
+
+def make_sample_shapes_table_empty_container() -> LogsTable:
+    """Create a sample Top Shapes table where container is empty and db stays (unknown)."""
+    shapes = [
+        {
+            "ql_db_name": "(unknown)",
+            "ql_coll_name": "(unknown)",
+            "ql_shape_id": "shape_no_container",
+            "ql_sample_text": "SELECT * FROM c",
+            "ql_execution_count": 50,
+            "ql_total_ru": 250.0,
+            "ql_max_ru": 10.0,
+            "ql_total_returned_rows": 100.0,
+            "ql_throttled_count": 0,
+        }
+    ]
+    return make_sample_shapes_table(shapes=shapes)
+
+
 def make_sample_totals_table(
     window_total_ru: float = 1200.0,
     attributed_total_ru: float = 870.0,
