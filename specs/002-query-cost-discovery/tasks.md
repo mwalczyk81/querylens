@@ -112,7 +112,7 @@
 - [x] T036 [US3] Implement query text truncation and caller rendering in src/querylens/report/discover_console.py (formatting top 3 callers with RU shares, and truncating `sample_query_text` to 200 characters unless `show_text=True`) and query text omission in src/querylens/report/discover_json.py (omitting `sample_query_text` from output dictionary unless `show_text=True`, and serializing `top_callers`)
 - [x] T037 [US3] Wire `--show-text` flag into src/querylens/discover_cli.py propagating option through DiscoveryOptions to console and JSON formatters
 
-**Checkpoint**: All three user stories are now complete, with caller attribution and privacy invariants enforced.
+**Checkpoint**: All three user stories are now complete, with caller attribution and privacy invariants enforced. (Completed: live gate for US3 passed on real workspace at commit `2049614`; subsequent optimization `materialize(ql_resolved_activities)` in `build_shapes_query` flagged for final live re-run)
 
 ---
 
@@ -120,12 +120,12 @@
 
 **Purpose**: Snapshot regression verification, release documentation, code hygiene, and test coverage enforcement.
 
-- [ ] T038 [P] Implement end-to-end output format snapshot tests in tests/integration/test_discover_snapshots.py using syrupy for discovery console table, discovery JSON, check console report, and check JSON
-- [ ] T039 [P] Update release qualification procedure in docs/manual-testing.md with step-by-step verification commands for both KQL queries against Azure portal Logs editor
-- [ ] T040 [P] Update README.md (new 'Discover query costs from logs' section covering --check, --print-kql, --show-text, required role Log Analytics Reader, and the obfuscation caveat) and CONTRIBUTING.md in README.md and CONTRIBUTING.md
-- [ ] T041 Verify test coverage threshold >= 85% across all discovery and report modules using uv run pytest --cov=querylens --cov-fail-under=85
-- [ ] T042 [P] Run static analysis and linting checks using uv run ruff check src tests, uv run ruff format --check src tests, and uv run pyrefly check
-- [ ] T043 Run full pre-commit pipeline across all repository files using uv run pre-commit run --all-files
+- [x] T038 [P] Implement end-to-end output format snapshot tests in tests/integration/test_discover_snapshots.py using syrupy for discovery console table, discovery JSON, check console report, and check JSON
+- [x] T039 [P] Update release qualification procedure in docs/manual-testing.md with step-by-step verification commands for both KQL queries against Azure portal Logs editor
+- [x] T040 [P] Update README.md (new 'Discover query costs from logs' section covering --check, --print-kql, --show-text, required role Log Analytics Reader, and the obfuscation caveat) and CONTRIBUTING.md in README.md and CONTRIBUTING.md
+- [x] T041 Verify test coverage threshold >= 85% across all discovery and report modules using uv run pytest --cov=querylens --cov-fail-under=85
+- [x] T042 [P] Run static analysis and linting checks using uv run ruff check src tests, uv run ruff format --check src tests, and uv run pyrefly check
+- [x] T043 Run full pre-commit pipeline across all repository files using uv run pre-commit run --all-files
 
 ---
 

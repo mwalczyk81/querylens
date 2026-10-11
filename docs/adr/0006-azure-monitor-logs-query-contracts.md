@@ -263,6 +263,7 @@ To prevent container misattribution while still resolving omitted database names
 * **Scoped Key Matching**: `build_shapes_query` pre-computes known database names strictly grouped by `(ql_shape_id, ql_coll_name)` in `ql_known_db_by_shape_container`.
 * **Single Known Database Invariant**: In `ql_single_db_shape_containers`, resolution occurs only when a `(shape, container)` pair has exactly one distinct known database name in the requested time window (`ql_db_count == 1`).
 * **Container Preservation**: The resolution join matches on `(ql_shape_id, ql_coll_name)` and fills *only* `ql_db_name`. The container name is never overwritten. If an activity's container is empty, or if a `(shape, container)` pair has zero or multiple known database names, the database remains `"(unknown)"`.
+* **Materialization of Resolved Activities**: Because `ql_resolved_activities` is evaluated by both `ql_top_shapes` and `ql_top_callers_per_shape`, it is wrapped in `materialize()` to prevent duplicate resolution joins and guarantee consistent row evaluation in Kusto.
 
 ### 14. Server-Side Top 3 Caller Ranking and Dynamic Bag Packing (User Story 3)
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "querylens"
-version = "0.1.0"
+version = "0.2.0"
 description = "Analyze database query cost and recommend fixes"
 readme = "README.md"
 license = "MIT"

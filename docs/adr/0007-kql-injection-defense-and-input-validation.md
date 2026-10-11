@@ -12,7 +12,7 @@ When users invoke `querylens discover`, several parameters dictate the scope and
 
 * `--workspace-id` (or `QUERYLENS_WORKSPACE_ID`): Log Analytics workspace identifier.
 * `--account`: Optional Cosmos DB database account filter.
-* `--window`: Lookback time window (e.g., `24h`, `7d`).
+* `--time-window` / `-t`: Lookback time window (e.g., `24h`, `7d`).
 * `--top`: Maximum number of expensive query shapes to return (e.g., `20`).
 
 As established in [ADR 0006](file:///docs/adr/0006-azure-monitor-logs-query-contracts.md), the Azure Monitor Logs Query API does not accept parameterized queries (e.g., `@param` or variable declarations). How does QueryLens construct secure, performant KQL queries without exposing the system to injection vulnerabilities or data plane exfiltration?
@@ -75,7 +75,7 @@ def escape_kql_string(value: str) -> str:
 In KQL, string literals enclosed in double quotes use backslash as the escape character:
 
 ```kusto
-| where _ResourceId has "/databaseaccounts/{escaped_account}"
+| where _ResourceId endswith "/databaseaccounts/{escaped_account}"
 ```
 
 Combined with Layer 1's regex validation, injection into KQL syntax is mathematically impossible.

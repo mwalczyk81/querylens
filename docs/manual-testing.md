@@ -25,20 +25,21 @@
 
 Before cutting any release tag (e.g. `v0.2.0`), perform the following steps against a real Azure Log Analytics workspace connected to an active Cosmos DB account:
 
-- [ ] **Step 1: KQL Syntax & Column Verification in Azure Portal (Both Queries)**
-- [ ] **Step 2: Preflight Diagnostic Check (`--check`)**
+- [ ] **Step 1: KQL Syntax & Query Inspection (`--print-kql` and `--check --print-kql`)**
+- [ ] **Step 2: Preflight Diagnostic Check (`querylens discover --check`)**
 - [ ] **Step 3: End-to-End Discovery Run (`querylens discover`)**
 - [ ] **Step 4: Machine-Readable JSON Validation (`--json`)**
 - [ ] **Step 5: Query Text Privacy Verification (default vs `--show-text`)**
-- [ ] **Step 6: Silent-Zero Guard Verification (misconfigured telemetry handling)**
+- [ ] **Step 6: Caller Attribution Verification (guid/ip fallback & shares <= 100%)**
+- [ ] **Step 7: Silent-Zero Guard Verification (misconfigured telemetry handling)**
 
 ---
 
 ## 3. Step-by-Step Qualification Procedure
 
-### Step 1: KQL Syntax & Column Verification in Azure Portal (Both Queries)
+### Step 1: KQL Syntax & Query Inspection in Azure Portal (`--print-kql`)
 
-`querylens discover --print-kql` generates two distinct KQL queries that must both be tested in the Azure Portal Logs query editor.
+QueryLens provides offline `--print-kql` inspection for both the Discovery engine and the Preflight Diagnostic Check. Both queries must be validated in the Azure Portal Logs query editor prior to release.
 
 1. Authenticate with Azure CLI:
 
@@ -46,7 +47,7 @@ Before cutting any release tag (e.g. `v0.2.0`), perform the following steps agai
    az login
    ```
 
-2. Generate both KQL queries using `--print-kql`:
+2. Generate Discovery KQL queries using `--print-kql`:
 
    ```bash
    uv run querylens discover --workspace-id <YOUR_WORKSPACE_ID> --account <YOUR_ACCOUNT_NAME> --print-kql
@@ -55,27 +56,44 @@ Before cutting any release tag (e.g. `v0.2.0`), perform the following steps agai
    The output contains two demarcated sections:
    - `// === Query 1: Top Query Shapes Query ===`
    - `// === Query 2: Window & Attributed Totals Query ===`
-3. Open the **Azure Portal** and navigate to your target **Log Analytics workspace**.
-4. Open the **Logs** query editor.
+
+3. Generate Preflight Check KQL query using `--check --print-kql`:
+
+   ```bash
+   uv run querylens discover --workspace-id <YOUR_WORKSPACE_ID> --check --print-kql
+   ```
+
+   The output contains:
+   - `// === Preflight Diagnostic Check Query ===`
+
+4. Open the **Azure Portal**, navigate to your target **Log Analytics workspace**, and open the **Logs** query editor.
 
 #### Validating Query 1 (Top Shapes)
 
 1. Copy Query 1 from terminal output, paste it into the query editor, and click **Run**.
 2. **Pass Criteria**:
-   - Compiles and runs without semantic or syntax errors.
+   - Compiles and runs cleanly without semantic, syntax, or memory limit errors.
+   - Note: Query 1 wraps `ql_resolved_activities` in `materialize()` to avoid evaluating the container-scoped database-resolution join twice. Confirm this executes cleanly on live workspace telemetry.
    - All columns (`numberofrowsreturned_s`, `requestCharge_s`, `shapesignature_s`, `activityId_g`, etc.) resolve cleanly via `column_ifexists()`.
    - Results return at most $N$ rows (where $N$ is `--top`).
-   - The `top_callers` column produces a valid JSON dynamic array with up to 3 caller objects per shape.
+   - The `ql_top_callers` column produces a valid JSON dynamic array with up to 3 caller objects per shape.
 
 #### Validating Query 2 (Totals)
 
 1. Copy Query 2 from terminal output, paste it into the query editor, and click **Run**.
 2. **Pass Criteria**:
    - Compiles and runs cleanly, returning exactly **1 row** with columns:
-     - `window_total_ru`: Non-negative float representing all `DataPlaneRequests` in scope and window.
-     - `attributed_total_ru`: Non-negative float representing RU of all joined queries.
-     - `total_executions`: Non-negative integer.
-     - `min_time_generated`: Earliest timestamp observed in the window.
+     - `ql_window_total_ru`: Non-negative float representing all `DataPlaneRequests` in scope and window.
+     - `ql_attributed_total_ru`: Non-negative float representing RU of all joined queries.
+     - `ql_total_executions`: Non-negative integer.
+     - `ql_min_time_generated`: Earliest timestamp observed in the window.
+
+#### Validating Preflight Check Query
+
+1. Copy the Preflight Diagnostic Check query, paste it into the query editor, and click **Run**.
+2. **Pass Criteria**:
+   - Compiles and runs cleanly, returning category rows and populated column counts.
+   - Dynamic bag `ql_auth_breakdown` resolves as a valid property bag.
 
 ---
 
@@ -145,7 +163,24 @@ uv run querylens discover --workspace-id <YOUR_WORKSPACE_ID> --top 10 --show-tex
 
 ---
 
-### Step 6: Silent-Zero Guard Verification
+### Step 6: Caller Attribution Verification
+
+Inspect caller attribution in the discovery terminal table and JSON output:
+
+```bash
+uv run querylens discover --workspace-id <YOUR_WORKSPACE_ID> --top 10
+```
+
+**Pass Criteria**:
+
+- "Top Callers" column lists up to 3 callers per shape with identifier and RU share %.
+- Identifiers display Entra ID principal GUIDs when present, falling back to client IP addresses.
+- Each caller's RU share percentage is bounded between 0.0% and 100.0%.
+- Callers are omitted without error if both principal GUID and client IP are absent.
+
+---
+
+### Step 7: Silent-Zero Guard Verification
 
 Test behavior against an account where query diagnostic logging is unconfigured or where `attributed_total_ru` is 0:
 
@@ -158,3 +193,9 @@ uv run querylens discover --workspace-id <YOUR_WORKSPACE_ID> --account <ACCOUNT_
 - Exits immediately with **exit code 1**.
 - Emits a clear, actionable notice on `stderr` explaining that telemetry is incomplete and advising the user to run `querylens discover --check`.
 - Does **not** render a misleading table of zeros or empty success.
+
+---
+
+## 4. Interactive Live-Gate Execution
+
+For interactive, non-destructive validation of this procedure with Claude Code on a live workspace, refer to the full prompt in [Live Workspace Qualification Gate Prompt](live-gate.md).

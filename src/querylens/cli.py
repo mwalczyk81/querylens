@@ -50,7 +50,7 @@ def get_adapter(settings: Settings) -> DatabaseAdapter:
 
 @click.group()
 @click.option("--debug", is_flag=True, default=False, help="Enable verbose debug logging.")
-@click.version_option(version="0.1.0")
+@click.version_option(package_name="querylens")
 @click.pass_context
 def cli(ctx: click.Context, debug: bool) -> None:
     """QueryLens: Azure Cosmos DB Query Cost Profiler and Anti-Pattern Diagnoser."""

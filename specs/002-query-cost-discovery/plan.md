@@ -12,7 +12,7 @@ Enable developers and platform teams to automatically identify high-cost query s
 
 The feature queries the legacy `AzureDiagnostics` table using the official `azure-monitor-query` SDK and Microsoft Entra ID credentials (`DefaultAzureCredential`). Because Log Analytics returns only the final tabular output of a script, the engine executes **two targeted KQL queries**:
 
-1. **Top Shapes Query**: Summarizes both sides by `activityId_g` alone before joining, wraps `joined` and `top_shapes` in `materialize()` to guarantee join stability and tie-breaking consistency, and extracts top 3 callers per shape. Returns at most $N$ rows (where $N$ is `--top`, 1–100).
+1. **Top Shapes Query**: Summarizes both sides by `activityId_g` alone before joining, applies container-scoped database resolution (`(shape, container)`), wraps `ql_joined`, `ql_resolved_activities`, and `ql_top_shapes` in `materialize()` to guarantee join stability and avoid repeated computation, and extracts top 3 callers per shape using strict `ql_` identifier conventions. Returns at most $N$ rows (where $N$ is `--top`, 1–100).
 2. **Totals Query**: Calculates overall `window_total_ru`, `attributed_total_ru` (summed across ALL joined shapes in the window), `total_executions`, and `min(TimeGenerated)` from `DataPlaneRequests`. Returns exactly 1 row.
 
 The client receives at most $N$ shape rows plus 1 totals row (zero unaggregated rows transferred). The command makes zero calls to the Cosmos DB data plane, requires zero Cosmos credentials, adheres to strict KQL injection defense, provides preflight telemetry health checks (`--check`), provides offline KQL inspection for both queries (`--print-kql`), enforces a Silent-Zero Guard against telemetry misconfiguration, and outputs both Rich terminal tables and privacy-preserving machine-readable JSON (omitting query text by default unless `--show-text` is passed).
@@ -46,7 +46,7 @@ The client receives at most $N$ shape rows plus 1 totals row (zero unaggregated 
 - Zero secret storage; Entra ID authentication only (`Log Analytics Reader`).
 - Strict KQL injection defense via allowlist validation and string-literal escaping.
 - Strict type safety: wrap every `column_ifexists(...)` in `tostring()` before `coalesce()`.
-- Deterministic joins: `materialize()` on `joined` and `top_shapes`.
+- Deterministic joins: `materialize()` on `ql_joined`, `ql_resolved_activities`, and `ql_top_shapes`.
 - Case-insensitive account filtering without term-splitting: `_ResourceId endswith "/databaseaccounts/{escaped_account}"`.
 - Silent-Zero Guard: abort with exit code 1 if `attributed_total_ru == 0` while `window_total_ru > 0`, or if essential columns are absent.
 - Payload privacy (FR-012): query text omitted from `--json` unless `--show-text` is passed.

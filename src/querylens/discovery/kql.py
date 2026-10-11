@@ -102,19 +102,21 @@ let ql_single_db_shape_containers = ql_known_db_by_shape_container
     ql_resolved_db = take_any(ql_known_db)
   by ql_shape_id, ql_coll_name
 | where ql_db_count == 1;
-let ql_resolved_activities = ql_joined
-| join kind=leftouter ql_single_db_shape_containers on ql_shape_id, ql_coll_name
-| extend
-    ql_db_name = iff(
-        isnotempty(ql_db_name) and ql_db_name != "(unknown)",
-        ql_db_name,
-        coalesce(ql_resolved_db, "(unknown)")
-    ),
-    ql_coll_name = iff(
-        isnotempty(ql_coll_name) and ql_coll_name != "(unknown)",
-        ql_coll_name,
-        "(unknown)"
-    );
+let ql_resolved_activities = materialize(
+    ql_joined
+    | join kind=leftouter ql_single_db_shape_containers on ql_shape_id, ql_coll_name
+    | extend
+        ql_db_name = iff(
+            isnotempty(ql_db_name) and ql_db_name != "(unknown)",
+            ql_db_name,
+            coalesce(ql_resolved_db, "(unknown)")
+        ),
+        ql_coll_name = iff(
+            isnotempty(ql_coll_name) and ql_coll_name != "(unknown)",
+            ql_coll_name,
+            "(unknown)"
+        )
+);
 let ql_top_shapes = materialize(
     ql_resolved_activities
     | summarize

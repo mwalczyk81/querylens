@@ -23,6 +23,16 @@ from querylens.model import QueryCost
 class TestCliExitCodesContract:
     """Tests strictly verifying exit codes 0, 1, 3, and 5."""
 
+    def test_version_option_reports_installed_version(self) -> None:
+        """Verify querylens --version reports the package metadata version and exits 0."""
+        from importlib.metadata import version
+
+        expected_version = version("querylens")
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--version"])
+        assert result.exit_code == 0
+        assert f"version {expected_version}" in result.output
+
     def test_exit_code_1_missing_file(self) -> None:
         """Exit code 1 on non-existent workload file."""
         runner = CliRunner()

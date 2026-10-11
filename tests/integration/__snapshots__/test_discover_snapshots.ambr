@@ -1,0 +1,130 @@
+# serializer version: 1
+# name: TestDiscoverSnapshots.test_check_console_report_snapshot
+  '''
+  ┌───────────────────────────────────────────────────────── Log Analytics Diagnostic Preflight Check ──────────────────────────────────────────────────────────┐
+  │ Workspace: ...9abc                                                                                                                                          │
+  │ Window: 2026-10-10 12:00 to 2026-10-11 12:00 UTC                                                                                                            │
+  └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+            Diagnostic Categories           
+  ┌────────────────────────┬───────────────┐
+  │ Category               │     Row Count │
+  ├────────────────────────┼───────────────┤
+  │ DataPlaneRequests      │ 1,500 records │
+  │ QueryRuntimeStatistics │   400 records │
+  └────────────────────────┴───────────────┘
+  ┌──────────────────────────────────────────────────────────────── Log Retention & Boundaries ─────────────────────────────────────────────────────────────────┐
+  │ Earliest Record: 2026-10-09 18:00:00 UTC                                                                                                                    │
+  │ Latest Record:   2026-10-10 18:00:00 UTC                                                                                                                    │
+  │ Retention:       Healthy (data spans requested window)                                                                                                      │
+  └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+           Key Field Coverage         
+  ┌───────────────────┬──────────────┐
+  │ Field Name        │ Population % │
+  ├───────────────────┼──────────────┤
+  │ aadPrincipalId_g  │        80.0% │
+  │ aadPrincipalId_s  │         0.0% │
+  │ clientIpAddress_s │       100.0% │
+  │ querytext_s       │       100.0% │
+  │ shapesignature_s  │        97.5% │
+  │ useragent_s       │        96.7% │
+  └───────────────────┴──────────────┘
+   Authentication Token Types 
+  ┌──────────────────┬───────┐
+  │ Token Type       │ Count │
+  ├──────────────────┼───────┤
+  │ AAD              │ 1,200 │
+  │ PrimaryMasterKey │   300 │
+  └──────────────────┴───────┘
+  
+  '''
+# ---
+# name: TestDiscoverSnapshots.test_check_json_snapshot
+  dict({
+    'auth_breakdown': dict({
+      'AAD': 1200,
+      'PrimaryMasterKey': 300,
+    }),
+    'categories_detected': list([
+      'DataPlaneRequests',
+      'QueryRuntimeStatistics',
+    ]),
+    'earliest_record': '2026-10-09T18:00:00+00:00',
+    'field_coverage': dict({
+      'aadPrincipalId_g': 0.8,
+      'aadPrincipalId_s': 0.0,
+      'clientIpAddress_s': 1.0,
+      'querytext_s': 1.0,
+      'shapesignature_s': 0.975,
+      'useragent_s': 0.9667,
+    }),
+    'latest_record': '2026-10-10T18:00:00+00:00',
+    'masked_workspace_id': '...9abc',
+    'retention_warning': False,
+    'row_counts': dict({
+      'DataPlaneRequests': 1500,
+      'QueryRuntimeStatistics': 400,
+    }),
+    'window_end': '2026-10-11T12:00:00+00:00',
+    'window_start': '2026-10-10T12:00:00+00:00',
+  })
+# ---
+# name: TestDiscoverSnapshots.test_discover_console_table_snapshot
+  '''
+  ┌─────────────────────────────────────────────────────────── Azure Cosmos DB Query Cost Discovery ────────────────────────────────────────────────────────────┐
+  │ Target Workspace: ...9abc                                                                                                                                   │
+  │ Evaluation Window: 2026-10-10 12:00 to 2026-10-11 12:00 UTC                                                                                                 │
+  │ Total Database RU: 1,000.0                                                                                                                                  │
+  │ Unattributed RU:   500.0 (50.0% of total spend)                                                                                                             │
+  │ Discovered Shapes: 1                                                                                                                                        │
+  └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                                             Top Query Shapes by Total RU Consumption                                                            
+  ┌───────────┬───────────┬─────────────┬───────┬──────────┬────────┬────────┬───────┬──────────┬────────┬──────┬───────────────────────┬───────────────────────┐
+  │ Database  │ Container │ Shape ID    │ Execs │ Total RU │ Avg RU │ Max RU │  RU % │ Avg Rows │ RU/Row │ 429s │ Top Callers           │ Sample Query          │
+  ├───────────┼───────────┼─────────────┼───────┼──────────┼────────┼────────┼───────┼──────────┼────────┼──────┼───────────────────────┼───────────────────────┤
+  │ ecommerce │ orders    │ shape_ha... │   100 │    500.0 │    5.0 │   12.5 │ 50.0% │      2.0 │   2.50 │    0 │ 00000000-0000-0000-0… │ SELECT * FROM c WHERE │
+  │           │           │             │       │          │        │        │       │          │        │      │ (70.0%)               │ c.customer_id = @id   │
+  │           │           │             │       │          │        │        │       │          │        │      │ 192.168.1.1 (30.0%)   │                       │
+  └───────────┴───────────┴─────────────┴───────┴──────────┴────────┴────────┴───────┴──────────┴────────┴──────┴───────────────────────┴───────────────────────┘
+  
+  '''
+# ---
+# name: TestDiscoverSnapshots.test_discover_json_snapshot
+  dict({
+    'attributed_total_ru': 500.0,
+    'discovered_query_count': 1,
+    'masked_workspace_id': '...9abc',
+    'results': list([
+      dict({
+        'avg_returned_rows': 2.0,
+        'avg_ru': 5.0,
+        'container': 'orders',
+        'database': 'ecommerce',
+        'execution_count': 100,
+        'max_ru': 12.5,
+        'ru_per_returned_row': 2.5,
+        'ru_share_pct': 50.0,
+        'shape_id': 'shape_hash_with_callers',
+        'throttled_count': 0,
+        'top_callers': list([
+          dict({
+            'identifier': '00000000-0000-0000-0000-000000000001',
+            'identifier_type': 'aad_principal',
+            'ru_share_pct': 70.0,
+          }),
+          dict({
+            'identifier': '192.168.1.1',
+            'identifier_type': 'client_ip',
+            'ru_share_pct': 30.0,
+          }),
+        ]),
+        'total_ru': 500.0,
+      }),
+    ]),
+    'retention_warning': False,
+    'total_ru': 1000.0,
+    'unattributed_ru': 500.0,
+    'unattributed_ru_pct': 50.0,
+    'window_end': '2026-10-11T12:00:00+00:00',
+    'window_start': '2026-10-10T12:00:00+00:00',
+  })
+# ---

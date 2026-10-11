@@ -107,7 +107,7 @@ uv run querylens discover --workspace-id 12345678-1234-1234-1234-123456789abc --
 uv run querylens discover \
   --workspace-id 12345678-1234-1234-1234-123456789abc \
   --account cosmos-prod-eastus \
-  --window 7d \
+  --time-window 7d \
   --top 20
 ```
 

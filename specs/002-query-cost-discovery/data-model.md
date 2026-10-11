@@ -90,7 +90,7 @@ Internal configuration object validating CLI arguments and environment variables
 | --- | --- | --- | --- |
 | `workspace_id` | `--workspace-id` or `QUERYLENS_WORKSPACE_ID` | RFC 4122 UUIDv4 format (`uuid.UUID`). Rejects invalid with exit 1. | *Required* |
 | `account_filter` | `--account` | Optional. Regex `^[a-zA-Z0-9][-a-zA-Z0-9]{1,42}[a-zA-Z0-9]$`. Rejects invalid with exit 1. | `None` |
-| `time_window` | `--window` | Duration string parsed into `timedelta` (`[1-9][0-9]*[mhd]`). Bounded: `5m` to `90d`. | `timedelta(hours=24)` (`24h`) |
+| `time_window` | `--time-window` / `-t` | Duration string parsed into `timedelta` (`[1-9][0-9]*[mhd]`). Bounded: `5m` to `90d`. | `timedelta(hours=24)` (`24h`) |
 | `top_n` | `--top` | Integer bounded `1 <= top_n <= 100`. Rejects invalid with exit 1. | `20` |
 | `server_timeout_seconds` | `--timeout` | Integer bounded `10 <= timeout <= 600`. | `180` |
 | `show_text` | `--show-text` | Boolean flag. When True, query text is not truncated to 200 characters. | `False` |
