@@ -18,6 +18,12 @@ def test_build_shapes_query_default() -> None:
     assert "hash_sha256(ql_raw_text)" in query
     assert "by ql_db_name, ql_coll_name, ql_shape_id" in query
     assert "ql_db_name, ql_coll_name, ql_shape_id, ql_sample_text" in query
+    assert "let ql_known_pairs = " in query
+    assert "let ql_single_pair_shapes = " in query
+    assert "where ql_pair_count == 1" in query
+    assert "let ql_resolved_activities = " in query
+    assert 'coalesce(ql_resolved_db, "(unknown)")' in query
+    assert 'coalesce(ql_resolved_coll, "(unknown)")' in query
     assert "_ResourceId endswith" not in query
     # In US1, top_callers_per_shape is omitted
     assert "top_callers" not in query

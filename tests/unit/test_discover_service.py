@@ -389,3 +389,37 @@ def test_run_preflight_check_auth_breakdown_list_of_pairs_raises_error() -> None
         match="Unexpected auth breakdown shape: expected dict of auth type to count",
     ):
         run_preflight_check(options=options, client=mock_client)
+
+
+def test_run_discovery_single_known_pair_shape_does_not_appear_twice() -> None:
+    """Verify when a shape has 1 known pair, it does not appear twice (known and unknown)."""
+    from tests.fixtures.synthetic_logs import (
+        make_sample_shapes_table_with_single_known_pair_resolution,
+    )
+
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table_with_single_known_pair_resolution()
+    totals_table = make_sample_totals_table(
+        window_total_ru=1000.0,
+        attributed_total_ru=500.0,
+        total_executions=100,
+    )
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    summary = run_discovery(options=options, client=mock_client)
+
+    # Invariant: exactly 1 shape returned (resolved to ecommerce/orders), NOT split into two
+    assert summary.discovered_query_count == 1
+    assert len(summary.results) == 1
+    shape = summary.results[0]
+    assert shape.shape_id == "shape_single_pair_resolved"
+    assert shape.database == "ecommerce"
+    assert shape.container == "orders"
+    assert shape.execution_count == 100
+    assert shape.total_ru == 500.0
+    # No duplicate shape with (unknown) database
+    assert not any(s.database == "(unknown)" for s in summary.results)

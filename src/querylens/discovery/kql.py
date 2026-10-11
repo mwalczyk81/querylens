@@ -92,8 +92,32 @@ let ql_joined = materialize(
     ql_qrs
     | join kind=inner ql_reqs on ql_activity_id
 );
+let ql_known_pairs = ql_joined
+| where isnotempty(ql_db_name) and isnotempty(ql_coll_name)
+    and ql_db_name != "(unknown)" and ql_coll_name != "(unknown)"
+| summarize by ql_shape_id, ql_known_db = ql_db_name, ql_known_coll = ql_coll_name;
+let ql_single_pair_shapes = ql_known_pairs
+| summarize
+    ql_pair_count = count(),
+    ql_resolved_db = take_any(ql_known_db),
+    ql_resolved_coll = take_any(ql_known_coll)
+  by ql_shape_id
+| where ql_pair_count == 1;
+let ql_resolved_activities = ql_joined
+| join kind=leftouter ql_single_pair_shapes on ql_shape_id
+| extend
+    ql_db_name = iff(
+        isnotempty(ql_db_name) and ql_db_name != "(unknown)",
+        ql_db_name,
+        coalesce(ql_resolved_db, "(unknown)")
+    ),
+    ql_coll_name = iff(
+        isnotempty(ql_coll_name) and ql_coll_name != "(unknown)",
+        ql_coll_name,
+        coalesce(ql_resolved_coll, "(unknown)")
+    );
 let ql_top_shapes = materialize(
-    ql_joined
+    ql_resolved_activities
     | summarize
         ql_execution_count = count(),
         ql_total_ru = sum(ql_total_charge),

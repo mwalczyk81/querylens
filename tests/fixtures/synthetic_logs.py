@@ -129,6 +129,24 @@ def make_sample_shapes_table_with_empty_database() -> LogsTable:
     return make_sample_shapes_table(shapes=shapes)
 
 
+def make_sample_shapes_table_with_single_known_pair_resolution() -> LogsTable:
+    """Create a sample Top Shapes table where a shape resolved unknown activities."""
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_single_pair_resolved",
+            "ql_sample_text": "SELECT * FROM c WHERE c.customer_id = @id",
+            "ql_execution_count": 100,  # 80 known activities + 20 resolved unknown activities
+            "ql_total_ru": 500.0,
+            "ql_max_ru": 12.5,
+            "ql_total_returned_rows": 200.0,
+            "ql_throttled_count": 0,
+        }
+    ]
+    return make_sample_shapes_table(shapes=shapes)
+
+
 def make_sample_totals_table(
     window_total_ru: float = 1200.0,
     attributed_total_ru: float = 870.0,
