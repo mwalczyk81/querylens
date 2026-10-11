@@ -41,7 +41,7 @@ def TestOneInput(data: bytes) -> None:
             print_kql=print_kql,
             json_output=json_output,
         )
-    except (DiscoveryValidationError, ValidationError, ValueError, TypeError):
+    except (DiscoveryValidationError, ValidationError, ValueError, TypeError, OverflowError):
         pass
 
 

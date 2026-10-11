@@ -86,7 +86,15 @@ def test_discovery_options_invalid_account_filter(invalid_account: str) -> None:
 
 @pytest.mark.parametrize(
     "invalid_window",
-    ["0h", "abc", "2m", "91d", "-5h", "10y"],
+    [
+        "0h",
+        "abc",
+        "2m",
+        "91d",
+        "-5h",
+        "10y",
+        "7555555555555555555555555555555555555555555555555555555555555555555555555555555557d",
+    ],
 )
 def test_discovery_options_invalid_time_window(invalid_window: str) -> None:
     """Verify DiscoveryOptions bounds time window between 5m and 90d."""
