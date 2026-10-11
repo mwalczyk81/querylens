@@ -24,6 +24,7 @@ from querylens.discovery.models import (
 )
 
 RU_FLOAT_TOLERANCE: float = 0.01
+CALLER_SHARE_TOLERANCE_PCT: float = 0.05
 
 
 def _mask_workspace_id(workspace_id: UUID) -> str:
@@ -125,16 +126,13 @@ def _parse_top_callers(raw_callers: Any, shape_total_ru: float) -> list[CallerAt
         caller_ru_float = float(raw_ru)
         if shape_total_ru > 0.0:
             ru_share = (caller_ru_float / shape_total_ru) * 100.0
-            if ru_share > 100.0:
-                if ru_share <= 100.001:  # Floating-point tolerance
-                    ru_share = 100.0
-                else:
-                    msg = (
-                        f"Caller RU share exceeded 100.0%: {ru_share:.2f}% "
-                        f"({caller_ru_float}/{shape_total_ru}). "
-                        "Caller RU cannot exceed shape total RU."
-                    )
-                    raise InternalConsistencyError(msg)
+            if ru_share > 100.0 + CALLER_SHARE_TOLERANCE_PCT:
+                msg = (
+                    f"Caller RU share exceeded 100.0%: {ru_share:.2f}% "
+                    f"({caller_ru_float}/{shape_total_ru}). "
+                    "Caller RU cannot exceed shape total RU."
+                )
+                raise InternalConsistencyError(msg)
             elif ru_share < 0.0:
                 raise InternalConsistencyError(
                     f"Caller RU share cannot be negative: {ru_share:.2f}%"
@@ -149,6 +147,14 @@ def _parse_top_callers(raw_callers: Any, shape_total_ru: float) -> list[CallerAt
                 identifier_type=raw_type,
             )
         )
+
+    total_caller_shares = sum(c.ru_share_pct for c in callers)
+    if total_caller_shares > 100.0 + CALLER_SHARE_TOLERANCE_PCT:
+        msg = (
+            f"Top callers RU shares sum exceeded 100.0%: {total_caller_shares:.2f}%. "
+            "Total caller RU cannot exceed shape total RU."
+        )
+        raise InternalConsistencyError(msg)
 
     return callers
 

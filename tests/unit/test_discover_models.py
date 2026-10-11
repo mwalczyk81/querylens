@@ -136,6 +136,15 @@ def test_caller_attribution_validation() -> None:
     with pytest.raises(ValidationError):
         CallerAttribution(identifier="id", ru_share_pct=101.0, identifier_type="aad_principal")
 
+    # Boundary validation at 100.05 tolerance
+    valid_tolerance_caller = CallerAttribution(
+        identifier="id", ru_share_pct=100.05, identifier_type="aad_principal"
+    )
+    assert valid_tolerance_caller.ru_share_pct == 100.05
+
+    with pytest.raises(ValidationError):
+        CallerAttribution(identifier="id", ru_share_pct=100.06, identifier_type="aad_principal")
+
     with pytest.raises(ValidationError):
         CallerAttribution(identifier="id", ru_share_pct=50.0, identifier_type=cast(Any, "unknown"))
 

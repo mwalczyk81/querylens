@@ -1,5 +1,6 @@
 """Unit tests for discovery service execution using synthetic LogsTable fixtures."""
 
+import json
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Self
 from unittest.mock import MagicMock
@@ -647,6 +648,62 @@ def test_run_discovery_callers_excess_ru_raises_internal_consistency_error() -> 
 
     options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
     with pytest.raises(InternalConsistencyError, match="Caller RU share exceeded 100.0%"):
+        run_discovery(options=options, client=mock_client)
+
+
+def test_run_discovery_caller_shares_unrounded_sum_valid_rounded_sum_100_01() -> None:
+    """Verify caller shares are validated unrounded, and round to 100.01 in JSON."""
+    from querylens.report.discover_json import serialize_discovery_json
+    from tests.fixtures.synthetic_logs import (
+        make_sample_shapes_table_with_caller_shares_sum_rounding_100_01,
+    )
+
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table_with_caller_shares_sum_rounding_100_01()
+    totals_table = make_sample_totals_table(window_total_ru=10000.0, attributed_total_ru=10000.0)
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    summary = run_discovery(options=options, client=mock_client)
+
+    assert len(summary.results) == 1
+    callers = summary.results[0].top_callers
+    assert len(callers) == 3
+
+    # Unrounded shares validate cleanly and sum to 100.0
+    unrounded_sum = sum(c.ru_share_pct for c in callers)
+    assert pytest.approx(unrounded_sum, abs=1e-5) == 100.0
+
+    # Display / JSON serialization rounds each to 2 decimal places, summing to 100.01
+    json_str = serialize_discovery_json(summary)
+    data = json.loads(json_str)
+    caller_items = data["results"][0]["top_callers"]
+    rounded_shares = [c["ru_share_pct"] for c in caller_items]
+    assert rounded_shares == [33.34, 33.34, 33.33]
+    rounded_sum = sum(rounded_shares)
+    assert round(rounded_sum, 2) == 100.01
+    assert rounded_sum <= 100.05
+
+
+def test_run_discovery_callers_shares_sum_exceeding_tolerance_raises_error() -> None:
+    """Verify strict parser validates callers shares sum <= 100.05%."""
+    from tests.fixtures.synthetic_logs import (
+        make_sample_shapes_table_with_excess_caller_shares_sum,
+    )
+
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table_with_excess_caller_shares_sum()
+    totals_table = make_sample_totals_table(window_total_ru=1000.0, attributed_total_ru=1000.0)
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    with pytest.raises(InternalConsistencyError, match="Top callers RU shares sum exceeded 100.0%"):
         run_discovery(options=options, client=mock_client)
 
 

@@ -133,7 +133,7 @@
                 "ru_share_pct": {
                   "type": "number",
                   "minimum": 0,
-                  "maximum": 100
+                  "maximum": 100.05
                 },
                 "identifier_type": {
                   "type": "string",

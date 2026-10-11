@@ -308,8 +308,68 @@ def test_discover_json_with_top_callers_matches_schema() -> None:
     assert item["top_callers"][1]["ru_share_pct"] == 30.0
     assert item["top_callers"][1]["identifier_type"] == "client_ip"
 
+    # Validate callers RU share sum does not exceed 100.0% within 0.05% tolerance
+    shares_sum = sum(c["ru_share_pct"] for c in item["top_callers"])
+    assert shares_sum <= 100.05
+
     # Schema items validation
     caller_schema = schema["properties"]["results"]["items"]["properties"]["top_callers"]["items"]
     for caller in item["top_callers"]:
         for req in caller_schema["required"]:
             assert req in caller
+
+
+def test_discover_json_caller_shares_rounded_sum_100_01_within_tolerance() -> None:
+    """Verify unrounded shares summing to 100.0 round to 100.01 in JSON within tolerance."""
+    now = datetime.now(UTC)
+    # 33.3368 + 33.3368 + 33.3264 = 100.0 unrounded
+    callers = [
+        CallerAttribution(
+            identifier="00000000-0000-0000-0000-000000000001",
+            ru_share_pct=33.3368,
+            identifier_type="aad_principal",
+        ),
+        CallerAttribution(
+            identifier="00000000-0000-0000-0000-000000000002",
+            ru_share_pct=33.3368,
+            identifier_type="aad_principal",
+        ),
+        CallerAttribution(
+            identifier="10.0.0.1",
+            ru_share_pct=33.3264,
+            identifier_type="client_ip",
+        ),
+    ]
+    shape = DiscoveredQueryShape(
+        database="ecommerce",
+        container="orders",
+        shape_id="shape_123",
+        execution_count=100,
+        total_ru=10000.0,
+        avg_ru=100.0,
+        max_ru=150.0,
+        ru_share_pct=100.0,
+        avg_returned_rows=10.0,
+        throttled_count=0,
+        top_callers=callers,
+    )
+    summary = WorkloadDiscoverySummary(
+        window_start=now - timedelta(hours=1),
+        window_end=now,
+        total_ru=10000.0,
+        attributed_total_ru=10000.0,
+        unattributed_ru=0.0,
+        unattributed_ru_pct=0.0,
+        discovered_query_count=1,
+        results=[shape],
+        retention_warning=False,
+        masked_workspace_id="...9abc",
+    )
+    json_str = serialize_discovery_json(summary)
+    data = json.loads(json_str)
+    caller_items = data["results"][0]["top_callers"]
+    rounded_shares = [c["ru_share_pct"] for c in caller_items]
+    assert rounded_shares == [33.34, 33.34, 33.33]
+    rounded_sum = sum(rounded_shares)
+    assert round(rounded_sum, 2) == 100.01
+    assert rounded_sum <= 100.05

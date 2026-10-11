@@ -145,7 +145,7 @@ class CallerAttribution(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     identifier: Annotated[str, Field(min_length=1)]
-    ru_share_pct: Annotated[float, Field(ge=0.0, le=100.0)]
+    ru_share_pct: Annotated[float, Field(ge=0.0, le=100.05)]
     identifier_type: Literal["aad_principal", "client_ip"]
 
 

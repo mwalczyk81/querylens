@@ -498,3 +498,78 @@ def make_sample_shapes_table_with_excess_caller_ru() -> LogsTable:
         }
     ]
     return make_sample_shapes_table(shapes=shapes)
+
+
+def make_sample_shapes_table_with_caller_shares_sum_rounding_100_01() -> LogsTable:
+    """Create a sample Top Shapes table where caller shares sum to 100.0 unrounded.
+
+    When formatted to 2 decimal places in JSON, rounded shares sum to 100.01.
+    """
+    # 3333.68 + 3333.68 + 3332.64 = 10000.0
+    callers = [
+        {
+            "identifier": "00000000-0000-0000-0000-000000000001",
+            "caller_ru": 3333.68,
+            "identifier_type": "aad_principal",
+        },
+        {
+            "identifier": "00000000-0000-0000-0000-000000000002",
+            "caller_ru": 3333.68,
+            "identifier_type": "aad_principal",
+        },
+        {
+            "identifier": "10.0.0.1",
+            "caller_ru": 3332.64,
+            "identifier_type": "client_ip",
+        },
+    ]
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_hash_rounding_callers",
+            "ql_sample_text": "SELECT * FROM c",
+            "ql_execution_count": 100,
+            "ql_total_ru": 10000.0,
+            "ql_max_ru": 150.0,
+            "ql_total_returned_rows": 200.0,
+            "ql_throttled_count": 0,
+            "ql_top_callers": callers,
+        }
+    ]
+    return make_sample_shapes_table(shapes=shapes)
+
+
+def make_sample_shapes_table_with_excess_caller_shares_sum() -> LogsTable:
+    """Create a sample Top Shapes table where caller shares sum exceeds 100.05%.
+
+    Individual callers are <= 100% but their collective sum exceeds the tolerance.
+    """
+    # 600.0 + 500.0 = 1100.0 RU on 1000.0 shape RU = 110.0%
+    callers = [
+        {
+            "identifier": "00000000-0000-0000-0000-000000000001",
+            "caller_ru": 600.0,
+            "identifier_type": "aad_principal",
+        },
+        {
+            "identifier": "10.0.0.1",
+            "caller_ru": 500.0,
+            "identifier_type": "client_ip",
+        },
+    ]
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_hash_excess_shares_sum",
+            "ql_sample_text": "SELECT * FROM c",
+            "ql_execution_count": 10,
+            "ql_total_ru": 1000.0,
+            "ql_max_ru": 100.0,
+            "ql_total_returned_rows": 20.0,
+            "ql_throttled_count": 0,
+            "ql_top_callers": callers,
+        }
+    ]
+    return make_sample_shapes_table(shapes=shapes)
