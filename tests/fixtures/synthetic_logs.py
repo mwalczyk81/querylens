@@ -167,7 +167,7 @@ def make_sample_preflight_table(
     has_aad_str: int = 0,
     has_client_ip: int = 1500,
     has_useragent: int = 1450,
-    auth_breakdown: dict[str, int] | None = None,
+    auth_breakdown: list[list[Any]] | dict[str, int] | None = None,
 ) -> LogsTable:
     """Create a sample Preflight Check table result.
 
@@ -182,7 +182,7 @@ def make_sample_preflight_table(
         has_aad_str: Count of non-empty aadPrincipalId_s records.
         has_client_ip: Count of non-empty clientIpAddress_s records.
         has_useragent: Count of non-empty useragent_s records.
-        auth_breakdown: Breakdown dictionary of authTokenType_s counts.
+        auth_breakdown: Breakdown list of [auth_type, count] pairs or dict.
 
     Returns:
         LogsTable with a single preflight diagnostic row.
@@ -200,7 +200,9 @@ def make_sample_preflight_table(
         "ql_has_useragent",
         "ql_auth_breakdown",
     ]
-    auth = auth_breakdown if auth_breakdown is not None else {"AAD": 1200, "PrimaryMasterKey": 300}
+    auth: Any = (
+        auth_breakdown if auth_breakdown is not None else [["AAD", 1200], ["PrimaryMasterKey", 300]]
+    )
     rows = [
         [
             dataplane_count,
@@ -217,3 +219,22 @@ def make_sample_preflight_table(
         ]
     ]
     return make_logs_table(columns=columns, rows=rows)
+
+
+def make_sample_preflight_table_with_unscoped_aad_guid() -> LogsTable:
+    """Create a sample Preflight Check table where non-DataPlaneRequests populated aadPrincipalId_g.
+
+    Simulates an unscoped query bug where aadPrincipalId_g was populated on non-DataPlaneRequests
+    (e.g., ControlPlaneRequests), resulting in has_aad_guid exceeding dataplane_count (1200 > 1000).
+    """
+    return make_sample_preflight_table(
+        dataplane_count=1000,
+        queryruntime_count=400,
+        has_shapesignature=390,
+        has_querytext=400,
+        has_aad_guid=1200,
+        has_aad_str=0,
+        has_client_ip=1000,
+        has_useragent=950,
+        auth_breakdown=[["AAD", 1000]],
+    )

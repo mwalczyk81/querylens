@@ -133,9 +133,20 @@ def run_discovery(
             avg_ru = tot_ru / exec_count if exec_count > 0 else 0.0
             avg_returned = tot_rows / exec_count if exec_count > 0 else 0.0
             ru_per_row = (tot_ru / tot_rows) if tot_rows > 0 else None
-            ru_share = (
-                min(100.0, (tot_ru / window_total_ru * 100.0)) if window_total_ru > 0.0 else 0.0
-            )
+            if window_total_ru > 0.0:
+                ru_share = (tot_ru / window_total_ru) * 100.0
+                if ru_share > 100.0:
+                    if ru_share <= 100.001:
+                        ru_share = 100.0
+                    else:
+                        msg = (
+                            f"Internal error: query shape RU share exceeded 100.0%: "
+                            f"{ru_share:.2f}% ({tot_ru}/{window_total_ru}). "
+                            "Shape RU cannot exceed total window RU."
+                        )
+                        raise ValueError(msg)
+            else:
+                ru_share = 0.0
 
             sample_text = None
             try:
@@ -185,6 +196,33 @@ def run_discovery(
         retention_warning=retention_warning,
         masked_workspace_id=_mask_workspace_id(options.workspace_id),
     )
+
+
+def _compute_coverage_ratio(numerator: int, denominator: int, field_name: str) -> float:
+    """Compute field coverage ratio, ensuring numerator does not exceed denominator.
+
+    Args:
+        numerator: Count of records where field is populated.
+        denominator: Total records in the category.
+        field_name: Diagnostic field name for error reporting.
+
+    Returns:
+        Coverage ratio between 0.0 and 1.0.
+
+    Raises:
+        ValueError: If numerator exceeds denominator, indicating an internal query scoping bug.
+    """
+    if denominator == 0:
+        return 0.0
+    ratio = numerator / denominator
+    if ratio > 1.0:
+        msg = (
+            f"Internal error: field coverage ratio for '{field_name}' "
+            f"exceeded 1.0 ({numerator}/{denominator} = {ratio:.4f}). "
+            "Population count must not exceed category row count."
+        )
+        raise ValueError(msg)
+    return ratio
 
 
 def run_preflight_check(
@@ -261,34 +299,37 @@ def run_preflight_check(
     }
 
     field_coverage: dict[str, float] = {
-        "shapesignature_s": (
-            min(1.0, has_shapesignature / queryruntime_count) if queryruntime_count > 0 else 0.0
+        "shapesignature_s": _compute_coverage_ratio(
+            has_shapesignature, queryruntime_count, "shapesignature_s"
         ),
-        "querytext_s": (
-            min(1.0, has_querytext / queryruntime_count) if queryruntime_count > 0 else 0.0
+        "querytext_s": _compute_coverage_ratio(has_querytext, queryruntime_count, "querytext_s"),
+        "aadPrincipalId_g": _compute_coverage_ratio(
+            has_aad_guid, dataplane_count, "aadPrincipalId_g"
         ),
-        "aadPrincipalId_g": (
-            min(1.0, has_aad_guid / dataplane_count) if dataplane_count > 0 else 0.0
+        "aadPrincipalId_s": _compute_coverage_ratio(
+            has_aad_str, dataplane_count, "aadPrincipalId_s"
         ),
-        "aadPrincipalId_s": (
-            min(1.0, has_aad_str / dataplane_count) if dataplane_count > 0 else 0.0
+        "clientIpAddress_s": _compute_coverage_ratio(
+            has_client_ip, dataplane_count, "clientIpAddress_s"
         ),
-        "clientIpAddress_s": (
-            min(1.0, has_client_ip / dataplane_count) if dataplane_count > 0 else 0.0
-        ),
-        "useragent_s": (min(1.0, has_useragent / dataplane_count) if dataplane_count > 0 else 0.0),
+        "useragent_s": _compute_coverage_ratio(has_useragent, dataplane_count, "useragent_s"),
     }
 
     auth_breakdown: dict[str, int] = {}
     if isinstance(raw_auth, str):
         try:
             parsed = json.loads(raw_auth)
-            if isinstance(parsed, dict):
-                auth_breakdown = {str(k): int(v or 0) for k, v in parsed.items()}
         except (ValueError, TypeError):
-            pass
-    elif isinstance(raw_auth, dict):
-        auth_breakdown = {str(k): int(v or 0) for k, v in raw_auth.items()}
+            parsed = None
+    else:
+        parsed = raw_auth
+
+    if isinstance(parsed, list):
+        for item in parsed:
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                auth_breakdown[str(item[0])] = int(item[1] or 0)
+    elif isinstance(parsed, dict):
+        auth_breakdown = {str(k): int(v or 0) for k, v in parsed.items()}
 
     retention_warning = False
     if earliest_record is not None:

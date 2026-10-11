@@ -14,6 +14,7 @@ from querylens.discovery.service import run_discovery, run_preflight_check
 from tests.fixtures.synthetic_logs import (
     make_logs_query_result,
     make_sample_preflight_table,
+    make_sample_preflight_table_with_unscoped_aad_guid,
     make_sample_shapes_table,
     make_sample_shapes_table_with_empty_database,
     make_sample_totals_table,
@@ -265,3 +266,83 @@ def test_run_discovery_with_empty_database_and_container() -> None:
     assert shape2.database == "(unknown)"
     assert shape2.container == "orders"
     assert shape2.total_ru == 150.0
+
+
+def test_run_preflight_check_unscoped_coverage_ratio_exceeds_one_raises_error() -> None:
+    """Verify run_preflight_check raises ValueError when population count exceeds category count."""
+    mock_client = MagicMock()
+    preflight_table = make_sample_preflight_table_with_unscoped_aad_guid()
+    mock_client.query_workspace.return_value = make_logs_query_result([preflight_table])
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    with pytest.raises(
+        ValueError, match="field coverage ratio for 'aadPrincipalId_g' exceeded 1.0"
+    ):
+        run_preflight_check(options=options, client=mock_client)
+
+
+def test_run_preflight_check_queryruntime_coverage_ratio_exceeds_one_raises_error() -> None:
+    """Verify run_preflight_check raises ValueError when queryruntime field coverage exceeds 1.0."""
+    mock_client = MagicMock()
+    preflight_table = make_sample_preflight_table(
+        queryruntime_count=100,
+        has_shapesignature=100,
+        has_querytext=120,
+    )
+    mock_client.query_workspace.return_value = make_logs_query_result([preflight_table])
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    with pytest.raises(ValueError, match="field coverage ratio for 'querytext_s' exceeded 1.0"):
+        run_preflight_check(options=options, client=mock_client)
+
+
+def test_run_discovery_ru_share_pct_exceeds_100_raises_error() -> None:
+    """Verify run_discovery raises ValueError when shape total RU exceeds window total RU."""
+    mock_client = MagicMock()
+    shapes = [
+        {
+            "ql_db_name": "db",
+            "ql_coll_name": "coll",
+            "ql_shape_id": "shape_1",
+            "ql_sample_text": "SELECT * FROM c",
+            "ql_execution_count": 10,
+            "ql_total_ru": 1500.0,
+            "ql_max_ru": 150.0,
+            "ql_total_returned_rows": 100.0,
+            "ql_throttled_count": 0,
+        }
+    ]
+    shapes_table = make_sample_shapes_table(shapes=shapes)
+    totals_table = make_sample_totals_table(
+        window_total_ru=1000.0,
+        attributed_total_ru=1000.0,
+    )
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    with pytest.raises(ValueError, match="query shape RU share exceeded 100.0%"):
+        run_discovery(options=options, client=mock_client)
+
+
+def test_run_preflight_check_auth_breakdown_as_json_string_pairs() -> None:
+    """Verify run_preflight_check parses JSON-serialized list of auth pairs."""
+    mock_client = MagicMock()
+    json_pairs = '[["AAD", 900], ["PrimaryMasterKey", 100]]'
+    preflight_table = make_sample_preflight_table(
+        dataplane_count=1000,
+        queryruntime_count=200,
+        has_shapesignature=190,
+        has_querytext=200,
+        has_aad_guid=900,
+        has_client_ip=1000,
+        has_useragent=950,
+        auth_breakdown=json_pairs,  # type: ignore[arg-type]
+    )
+    mock_client.query_workspace.return_value = make_logs_query_result([preflight_table])
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    report = run_preflight_check(options=options, client=mock_client)
+    assert report.auth_breakdown == {"AAD": 900, "PrimaryMasterKey": 100}
