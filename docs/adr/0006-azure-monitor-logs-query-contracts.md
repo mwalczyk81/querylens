@@ -167,16 +167,16 @@ Because Azure Monitor Log Analytics executes a script and returns **only the fin
 * **Deterministic Materialization**:
 
   ```kusto
-  let joined = materialize(
-      queries
-      | join kind=inner reqs on activityId_g
+  let ql_joined = materialize(
+      ql_qrs
+      | join kind=inner ql_reqs on ql_activity_id
       | extend ...
   );
   ...
-  let top_shapes = materialize(
-      joined
+  let ql_top_shapes = materialize(
+      ql_joined
       | summarize ...
-      | top N by total_ru desc
+      | top N by ql_total_ru desc
   );
   ```
 
@@ -226,3 +226,19 @@ To guarantee real-world query validity, QueryLens provides the `--print-kql` CLI
   1. Generate queries via `--print-kql` and run **both queries** in the Azure Portal Logs editor against a populated workspace to confirm zero syntax or column resolution errors.
   2. Run `querylens discover --check` against a live workspace to confirm diagnostic metadata extraction.
   3. Run `querylens discover` against a live workspace to confirm end-to-end shape discovery, caller attribution, and formatting.
+
+### 11. Structural KQL Identifier Collision Prevention via Prefix Convention
+
+During live workspace testing, queries using identifiers such as `queries` failed with semantic errors because `queries` is a reserved word in Azure Data Explorer / Kusto. While Microsoft documents identifier quoting and naming conventions, Microsoft publishes **no normative, exhaustive reserved-word list** for KQL. Maintaining a heuristic blacklist of reserved keywords is therefore fragile and incomplete.
+
+To make identifier collisions structurally impossible across all Azure Monitor versions and service environments:
+
+* **Universal `ql_` Prefix Control**: **EVERY** generated identifier in all queries (`build_shapes_query`, `build_totals_query`, and `build_preflight_check_query`) must begin with `ql_`:
+  * All `let` statement CTE variable names (e.g., `ql_reqs`, `ql_qrs`, `ql_joined`, `ql_top_shapes`, `ql_base`, `ql_counts`, `ql_auth`).
+  * All computed intermediate column aliases and join keys (e.g., `ql_activity_id`, `ql_total_charge`, `ql_is_429`, `ql_db_name`, `ql_coll_name`, `ql_shape_id`).
+  * All projected final output columns (e.g., `ql_db_name`, `ql_coll_name`, `ql_shape_id`, `ql_sample_text`, `ql_execution_count`, `ql_total_ru`, `ql_max_ru`, `ql_total_returned_rows`, `ql_throttled_count`, `ql_window_total_ru`, `ql_attributed_total_ru`, `ql_total_executions`, `ql_min_time_generated`, `ql_dataplane_count`, `ql_auth_breakdown`).
+* **Double Underscore Ban**: Generated identifiers must never start or end with double underscores (`__`).
+* **Automated Convention Enforcement**: Rather than testing against an incomplete reserved-word list, QueryLens enforces naming through an automated convention test (`test_kql_identifier_naming_conventions` in `tests/unit/test_discover_kql.py`):
+  * Every generated `let` name, computed alias, and output column must match `^ql_[a-z0-9_]+$`.
+  * An explicit minimal allowlist is permitted strictly for external Azure schema columns referenced by the queries: `{"Category", "ResourceProvider", "TimeGenerated", "_ResourceId"}`.
+* **Domain Model Decoupling**: The `ql_` prefix is strictly internal to the KQL generation and row-mapping service layer. Public domain entities (`DiscoveredQueryShape`, `PreflightCheckReport`) and JSON contract schemas preserve clean, unprefixed field names (`database`, `container`, `total_ru`, `execution_count`).

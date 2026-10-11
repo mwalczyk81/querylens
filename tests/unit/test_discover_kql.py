@@ -14,10 +14,10 @@ def test_build_shapes_query_default() -> None:
     assert 'Category == "QueryRuntimeStatistics"' in query
     assert 'ResourceProvider =~ "MICROSOFT.DOCUMENTDB"' in query
     assert "materialize(" in query
-    assert "top 20 by total_ru desc" in query
+    assert "top 20 by ql_total_ru desc" in query
     assert "hash_sha256(ql_raw_text)" in query
-    assert "by db_name, coll_name, shape_id" in query
-    assert "db_name, coll_name, shape_id, sample_text" in query
+    assert "by ql_db_name, ql_coll_name, ql_shape_id" in query
+    assert "ql_db_name, ql_coll_name, ql_shape_id, ql_sample_text" in query
     assert "_ResourceId endswith" not in query
     # In US1, top_callers_per_shape is omitted
     assert "top_callers" not in query
@@ -29,7 +29,7 @@ def test_build_shapes_query_with_account_filter() -> None:
     query = build_shapes_query(top_n=10, account_filter="my-cosmos-account")
     expected_clause = '| where _ResourceId endswith "/databaseaccounts/my-cosmos-account"'
     assert query.count(expected_clause) == 2
-    assert "top 10 by total_ru desc" in query
+    assert "top 10 by ql_total_ru desc" in query
 
 
 def test_build_totals_query_default() -> None:
@@ -37,10 +37,10 @@ def test_build_totals_query_default() -> None:
     query = build_totals_query()
     assert 'Category == "DataPlaneRequests"' in query
     assert 'Category == "QueryRuntimeStatistics"' in query
-    assert "attributed_total_ru = sum(ql_total_charge)" in query
+    assert "ql_attributed_total_ru = sum(ql_total_charge)" in query
     assert "let ql_reqs = materialize(" in query
-    assert "window_total_ru = ql_window_total" in query
-    assert "min_time_generated = ql_min_time" in query
+    assert "ql_window_total_ru = ql_window_total" in query
+    assert "ql_min_time_generated = ql_min_time" in query
     assert "_ResourceId endswith" not in query
 
 
@@ -55,16 +55,16 @@ def test_build_preflight_check_query_default() -> None:
     """Verify build_preflight_check_query creates valid preflight check KQL."""
     query = build_preflight_check_query()
     assert 'ResourceProvider =~ "MICROSOFT.DOCUMENTDB"' in query
-    assert "dataplane_count = countif(Category == " in query
-    assert "queryruntime_count = countif(Category == " in query
-    assert "earliest_time = min(TimeGenerated)" in query
-    assert "latest_time = max(TimeGenerated)" in query
-    assert "has_shapesignature = countif(" in query
-    assert "has_querytext = countif(" in query
-    assert "has_aad_guid = countif(" in query
-    assert "has_client_ip = countif(" in query
-    assert "has_useragent = countif(" in query
-    assert "make_bag(bag_pack(auth_type, count_))" in query
+    assert "ql_dataplane_count = countif(Category == " in query
+    assert "ql_queryruntime_count = countif(Category == " in query
+    assert "ql_earliest_time = min(TimeGenerated)" in query
+    assert "ql_latest_time = max(TimeGenerated)" in query
+    assert "ql_has_shapesignature = countif(" in query
+    assert "ql_has_querytext = countif(" in query
+    assert "ql_has_aad_guid = countif(" in query
+    assert "ql_has_client_ip = countif(" in query
+    assert "ql_has_useragent = countif(" in query
+    assert "make_bag(bag_pack(ql_auth_type, ql_count))" in query
     assert "_ResourceId endswith" not in query
 
 
@@ -86,124 +86,24 @@ def test_queries_have_no_internal_blank_lines() -> None:
             assert line != "", "KQL query contains empty line that would break portal execution"
 
 
-KQL_RESERVED_WORDS: frozenset[str] = frozenset(
+ALLOWED_EXTERNAL_COLUMNS: frozenset[str] = frozenset(
     {
-        # System entities / management keywords that collision caused bug
-        "queries",
-        "database",
-        "databases",
-        "table",
-        "tables",
-        "workspace",
-        "workspaces",
-        "cluster",
-        "clusters",
-        "external_table",
-        "materialized_view",
-        "function",
-        "functions",
-        "view",
-        "views",
-        "schema",
-        # Query operators and statement keywords
-        "as",
-        "by",
-        "consume",
-        "count",
-        "distinct",
-        "evaluate",
-        "extend",
-        "facet",
-        "filter",
-        "find",
-        "fork",
-        "getschema",
-        "invoke",
-        "join",
-        "let",
-        "limit",
-        "lookup",
-        "make-series",
-        "materialize",
-        "mv-apply",
-        "mv-expand",
-        "order",
-        "parse",
-        "parse-where",
-        "partition",
-        "pattern",
-        "plugin",
-        "print",
-        "project",
-        "project-away",
-        "project-keep",
-        "project-rename",
-        "project-reorder",
-        "range",
-        "reduce",
-        "render",
-        "sample",
-        "sample-distinct",
-        "scan",
-        "search",
-        "serialize",
-        "set",
-        "sort",
-        "summarize",
-        "take",
-        "top",
-        "top-hitters",
-        "top-nested",
-        "toscalar",
-        "union",
-        "where",
-        # Logical & comparison operators
-        "and",
-        "or",
-        "not",
-        "between",
-        "contains",
-        "containscs",
-        "endswith",
-        "endswithcs",
-        "has",
-        "has_all",
-        "has_any",
-        "has_cs",
-        "hasprefix",
-        "hasprefixcs",
-        "hassuffix",
-        "hassuffixcs",
-        "in",
-        "like",
-        "matches",
-        "regex",
-        "startswith",
-        "startswithcs",
-        # Literals and primitive scalar types
-        "true",
-        "false",
-        "null",
-        "bool",
-        "boolean",
-        "datetime",
-        "date",
-        "decimal",
-        "double",
-        "dynamic",
-        "guid",
-        "int",
-        "long",
-        "real",
-        "string",
-        "time",
-        "timespan",
+        "Category",
+        "ResourceProvider",
+        "TimeGenerated",
+        "_ResourceId",
     }
 )
 
 
-def test_no_kql_reserved_words_collision() -> None:
-    """Verify no let variable, computed alias, or output column collides with KQL reserved words."""
+def test_kql_identifier_naming_conventions() -> None:
+    """Verify all generated let variables, aliases, and output columns follow ql_ prefix convention.
+
+    Microsoft documents quoting and naming rules but publishes no normative reserved-word
+    list for Kusto/KQL. To prevent collisions structurally, all generated identifiers must
+    match ^ql_[a-z0-9_]+$, must never start or end with double underscores, and only allow
+    an explicit minimal set of external Azure schema columns.
+    """
     import re
 
     queries = [
@@ -212,25 +112,30 @@ def test_no_kql_reserved_words_collision() -> None:
         build_preflight_check_query(),
     ]
 
-    # Explicit check: "queries" and "database" are reserved and must NOT appear as let/alias names
-    assert "queries" in KQL_RESERVED_WORDS
-    assert "database" in KQL_RESERVED_WORDS
-
     for query in queries:
         # Extract let variable names: 'let <var> ='
         let_names = re.findall(r"\blet\s+([a-zA-Z0-9_]+)\s*=", query)
         for name in let_names:
-            assert name.lower() not in KQL_RESERVED_WORDS, (
-                f"Let variable '{name}' collides with KQL reserved word"
+            assert re.match(r"^ql_[a-z0-9_]+$", name), (
+                f"Let variable '{name}' does not match prefix pattern ^ql_[a-z0-9_]+$"
+            )
+            assert not name.startswith("__") and not name.endswith("__"), (
+                f"Let variable '{name}' starts or ends with double underscore"
             )
 
-        # Extract computed column aliases: '<alias> = <expr>' (excluding ==, =~, !=, <=, >=)
-        aliases = re.findall(r"(?<![=!<>~])\b([a-zA-Z0-9_]+)\s*=(?!=|~)", query)
-        for alias in aliases:
-            if alias == "let":
+        # Extract computed column aliases: '<alias> = <expr>'
+        # (excluding ==, =~, !=, <=, >=, and let/kind)
+        assignments = re.findall(r"(?<![=!<>~])\b([a-zA-Z0-9_]+)\s*=(?!=|~)", query)
+        for alias in assignments:
+            if alias in ("let", "kind"):
                 continue
-            assert alias.lower() not in KQL_RESERVED_WORDS, (
-                f"Computed alias '{alias}' collides with KQL reserved word"
+            if alias in ALLOWED_EXTERNAL_COLUMNS:
+                continue
+            assert re.match(r"^ql_[a-z0-9_]+$", alias), (
+                f"Computed alias '{alias}' does not match prefix pattern ^ql_[a-z0-9_]+$"
+            )
+            assert not alias.startswith("__") and not alias.endswith("__"), (
+                f"Computed alias '{alias}' starts or ends with double underscore"
             )
 
         # Extract projected output columns from '| project <col1>, <col2>...'
@@ -242,8 +147,12 @@ def test_no_kql_reserved_words_collision() -> None:
                 if col.strip() and not col.strip().startswith("//")
             ]
             for col in projected_cols:
-                # Handle possible alias assignment inside project like 'alias = expr'
                 col_name = col.split("=")[0].strip()
-                assert col_name.lower() not in KQL_RESERVED_WORDS, (
-                    f"Projected output column '{col_name}' collides with KQL reserved word"
+                if col_name in ALLOWED_EXTERNAL_COLUMNS:
+                    continue
+                assert re.match(r"^ql_[a-z0-9_]+$", col_name), (
+                    f"Projected column '{col_name}' does not match prefix pattern ^ql_[a-z0-9_]+$"
+                )
+                assert not col_name.startswith("__") and not col_name.endswith("__"), (
+                    f"Projected column '{col_name}' starts or ends with double underscore"
                 )

@@ -106,9 +106,9 @@ def run_discovery(
 
     if totals_tables and len(totals_tables[0].rows) > 0:
         row = totals_tables[0].rows[0]
-        window_total_ru = float(row["window_total_ru"] or 0.0)
-        attributed_total_ru = float(row["attributed_total_ru"] or 0.0)
-        min_time_generated = _parse_timestamp(row["min_time_generated"])
+        window_total_ru = float(row["ql_window_total_ru"] or 0.0)
+        attributed_total_ru = float(row["ql_attributed_total_ru"] or 0.0)
+        min_time_generated = _parse_timestamp(row["ql_min_time_generated"])
 
     # Enforce Silent-Zero Guard invariant
     if window_total_ru > 0.0 and attributed_total_ru == 0.0:
@@ -127,9 +127,9 @@ def run_discovery(
     shapes: list[DiscoveredQueryShape] = []
     if shapes_tables and len(shapes_tables[0].rows) > 0:
         for row in shapes_tables[0].rows:
-            tot_ru = float(row["total_ru"] or 0.0)
-            tot_rows = float(row["total_returned_rows"] or 0.0)
-            exec_count = int(row["execution_count"] or 1)
+            tot_ru = float(row["ql_total_ru"] or 0.0)
+            tot_rows = float(row["ql_total_returned_rows"] or 0.0)
+            exec_count = int(row["ql_execution_count"] or 1)
             avg_ru = tot_ru / exec_count if exec_count > 0 else 0.0
             avg_returned = tot_rows / exec_count if exec_count > 0 else 0.0
             ru_per_row = (tot_ru / tot_rows) if tot_rows > 0 else None
@@ -139,12 +139,12 @@ def run_discovery(
 
             sample_text = None
             try:
-                sample_text = str(row["sample_text"]) if row["sample_text"] else None
+                sample_text = str(row["ql_sample_text"]) if row["ql_sample_text"] else None
             except (KeyError, IndexError):
                 sample_text = None
 
-            raw_db = row["db_name"]
-            raw_coll = row["coll_name"]
+            raw_db = row["ql_db_name"]
+            raw_coll = row["ql_coll_name"]
             db_val = str(raw_db).strip() if raw_db else "(unknown)"
             coll_val = str(raw_coll).strip() if raw_coll else "(unknown)"
 
@@ -152,16 +152,16 @@ def run_discovery(
                 DiscoveredQueryShape(
                     database=db_val,
                     container=coll_val,
-                    shape_id=str(row["shape_id"] or ""),
+                    shape_id=str(row["ql_shape_id"] or ""),
                     sample_query_text=sample_text,
                     execution_count=exec_count,
                     total_ru=tot_ru,
                     avg_ru=avg_ru,
-                    max_ru=float(row["max_ru"] or 0.0),
+                    max_ru=float(row["ql_max_ru"] or 0.0),
                     ru_share_pct=ru_share,
                     avg_returned_rows=avg_returned,
                     ru_per_returned_row=ru_per_row,
-                    throttled_count=int(row["throttled_count"] or 0),
+                    throttled_count=int(row["ql_throttled_count"] or 0),
                     top_callers=[],
                 )
             )
@@ -237,17 +237,17 @@ def run_preflight_check(
 
     if tables and len(tables[0].rows) > 0:
         row = tables[0].rows[0]
-        dataplane_count = int(row["dataplane_count"] or 0)
-        queryruntime_count = int(row["queryruntime_count"] or 0)
-        earliest_record = _parse_timestamp(row["earliest_time"])
-        latest_record = _parse_timestamp(row["latest_time"])
-        has_shapesignature = int(row["has_shapesignature"] or 0)
-        has_querytext = int(row["has_querytext"] or 0)
-        has_aad_guid = int(row["has_aad_guid"] or 0)
-        has_aad_str = int(row["has_aad_str"] or 0)
-        has_client_ip = int(row["has_client_ip"] or 0)
-        has_useragent = int(row["has_useragent"] or 0)
-        raw_auth = row["auth_breakdown"]
+        dataplane_count = int(row["ql_dataplane_count"] or 0)
+        queryruntime_count = int(row["ql_queryruntime_count"] or 0)
+        earliest_record = _parse_timestamp(row["ql_earliest_time"])
+        latest_record = _parse_timestamp(row["ql_latest_time"])
+        has_shapesignature = int(row["ql_has_shapesignature"] or 0)
+        has_querytext = int(row["ql_has_querytext"] or 0)
+        has_aad_guid = int(row["ql_has_aad_guid"] or 0)
+        has_aad_str = int(row["ql_has_aad_str"] or 0)
+        has_client_ip = int(row["ql_has_client_ip"] or 0)
+        has_useragent = int(row["ql_has_useragent"] or 0)
+        raw_auth = row["ql_auth_breakdown"]
 
     categories_detected: list[str] = []
     if dataplane_count > 0:

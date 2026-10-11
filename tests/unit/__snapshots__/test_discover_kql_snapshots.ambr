@@ -6,28 +6,28 @@
       | where ResourceProvider =~ "MICROSOFT.DOCUMENTDB";
   let ql_counts = ql_base
   | summarize
-      dataplane_count = countif(Category == "DataPlaneRequests"),
-      queryruntime_count = countif(Category == "QueryRuntimeStatistics"),
-      earliest_time = min(TimeGenerated),
-      latest_time = max(TimeGenerated),
-      has_shapesignature = countif(
+      ql_dataplane_count = countif(Category == "DataPlaneRequests"),
+      ql_queryruntime_count = countif(Category == "QueryRuntimeStatistics"),
+      ql_earliest_time = min(TimeGenerated),
+      ql_latest_time = max(TimeGenerated),
+      ql_has_shapesignature = countif(
           Category == "QueryRuntimeStatistics" and isnotempty(coalesce(tostring(column_ifexists("shapesignature_s", "")), tostring(column_ifexists("ShapeSignature_s", "")), tostring(column_ifexists("shapeSignature_s", "")), ""))
       ),
-      has_querytext = countif(
+      ql_has_querytext = countif(
           Category == "QueryRuntimeStatistics" and isnotempty(coalesce(tostring(column_ifexists("querytext_s", "")), tostring(column_ifexists("QueryText_s", "")), tostring(column_ifexists("queryText_s", "")), ""))
       ),
-      has_aad_guid = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))),
-      has_aad_str = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_s", "")), tostring(column_ifexists("AadPrincipalId_s", "")), ""))),
-      has_client_ip = countif(isnotempty(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), ""))),
-      has_useragent = countif(isnotempty(coalesce(tostring(column_ifexists("userAgent_s", "")), tostring(column_ifexists("useragent_s", "")), tostring(column_ifexists("UserAgent_s", "")), "")));
+      ql_has_aad_guid = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))),
+      ql_has_aad_str = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_s", "")), tostring(column_ifexists("AadPrincipalId_s", "")), ""))),
+      ql_has_client_ip = countif(isnotempty(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), ""))),
+      ql_has_useragent = countif(isnotempty(coalesce(tostring(column_ifexists("userAgent_s", "")), tostring(column_ifexists("useragent_s", "")), tostring(column_ifexists("UserAgent_s", "")), "")));
   let ql_auth = toscalar(
       ql_base
       | where isnotempty(coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), ""))
-      | summarize count() by auth_type = coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), "")
-      | summarize make_bag(bag_pack(auth_type, count_))
+      | summarize ql_count = count() by ql_auth_type = coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), "")
+      | summarize make_bag(bag_pack(ql_auth_type, ql_count))
   );
   ql_counts
-  | extend auth_breakdown = ql_auth
+  | extend ql_auth_breakdown = ql_auth
   
   '''
 # ---
@@ -39,28 +39,28 @@
       | where _ResourceId endswith "/databaseaccounts/cosmos-prod-eastus";
   let ql_counts = ql_base
   | summarize
-      dataplane_count = countif(Category == "DataPlaneRequests"),
-      queryruntime_count = countif(Category == "QueryRuntimeStatistics"),
-      earliest_time = min(TimeGenerated),
-      latest_time = max(TimeGenerated),
-      has_shapesignature = countif(
+      ql_dataplane_count = countif(Category == "DataPlaneRequests"),
+      ql_queryruntime_count = countif(Category == "QueryRuntimeStatistics"),
+      ql_earliest_time = min(TimeGenerated),
+      ql_latest_time = max(TimeGenerated),
+      ql_has_shapesignature = countif(
           Category == "QueryRuntimeStatistics" and isnotempty(coalesce(tostring(column_ifexists("shapesignature_s", "")), tostring(column_ifexists("ShapeSignature_s", "")), tostring(column_ifexists("shapeSignature_s", "")), ""))
       ),
-      has_querytext = countif(
+      ql_has_querytext = countif(
           Category == "QueryRuntimeStatistics" and isnotempty(coalesce(tostring(column_ifexists("querytext_s", "")), tostring(column_ifexists("QueryText_s", "")), tostring(column_ifexists("queryText_s", "")), ""))
       ),
-      has_aad_guid = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))),
-      has_aad_str = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_s", "")), tostring(column_ifexists("AadPrincipalId_s", "")), ""))),
-      has_client_ip = countif(isnotempty(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), ""))),
-      has_useragent = countif(isnotempty(coalesce(tostring(column_ifexists("userAgent_s", "")), tostring(column_ifexists("useragent_s", "")), tostring(column_ifexists("UserAgent_s", "")), "")));
+      ql_has_aad_guid = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))),
+      ql_has_aad_str = countif(isnotempty(coalesce(tostring(column_ifexists("aadPrincipalId_s", "")), tostring(column_ifexists("AadPrincipalId_s", "")), ""))),
+      ql_has_client_ip = countif(isnotempty(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), ""))),
+      ql_has_useragent = countif(isnotempty(coalesce(tostring(column_ifexists("userAgent_s", "")), tostring(column_ifexists("useragent_s", "")), tostring(column_ifexists("UserAgent_s", "")), "")));
   let ql_auth = toscalar(
       ql_base
       | where isnotempty(coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), ""))
-      | summarize count() by auth_type = coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), "")
-      | summarize make_bag(bag_pack(auth_type, count_))
+      | summarize ql_count = count() by ql_auth_type = coalesce(tostring(column_ifexists("authTokenType_s", "")), tostring(column_ifexists("authtokentype_s", "")), tostring(column_ifexists("AuthTokenType_s", "")), "")
+      | summarize make_bag(bag_pack(ql_auth_type, ql_count))
   );
   ql_counts
-  | extend auth_breakdown = ql_auth
+  | extend ql_auth_breakdown = ql_auth
   
   '''
 # ---
@@ -75,44 +75,44 @@
           ql_is_429 = max(iff(coalesce(tostring(column_ifexists("statusCode_s", "")), tostring(column_ifexists("StatusCode_s", "")), "") == "429", 1, 0)),
           ql_client_ip = take_any(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), "")),
           ql_aad_principal = take_any(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))
-        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+        by ql_activity_id = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
   let ql_qrs = AzureDiagnostics
       | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
       | extend
-          db_name = coalesce(tostring(column_ifexists("databaseName_s", "")), tostring(column_ifexists("databasename_s", "")), tostring(column_ifexists("DatabaseName_s", "")), ""),
-          coll_name = coalesce(tostring(column_ifexists("collectionName_s", "")), tostring(column_ifexists("collectionname_s", "")), tostring(column_ifexists("CollectionName_s", "")), ""),
+          ql_db_name = coalesce(tostring(column_ifexists("databaseName_s", "")), tostring(column_ifexists("databasename_s", "")), tostring(column_ifexists("DatabaseName_s", "")), ""),
+          ql_coll_name = coalesce(tostring(column_ifexists("collectionName_s", "")), tostring(column_ifexists("collectionname_s", "")), tostring(column_ifexists("CollectionName_s", "")), ""),
           ql_shape_sig = coalesce(tostring(column_ifexists("shapesignature_s", "")), tostring(column_ifexists("ShapeSignature_s", "")), tostring(column_ifexists("shapeSignature_s", "")), ""),
           ql_raw_text = coalesce(tostring(column_ifexists("querytext_s", "")), tostring(column_ifexists("QueryText_s", "")), tostring(column_ifexists("queryText_s", "")), ""),
           ql_returned_count = todouble(coalesce(tostring(column_ifexists("numberofrowsreturned_s", "")), tostring(column_ifexists("numberOfRowsReturned_s", "")), tostring(column_ifexists("NumberOfRowsReturned_s", "")), "0"))
       | extend ql_shape_key = iff(isnotempty(ql_shape_sig), ql_shape_sig, hash_sha256(ql_raw_text))
       | summarize
-          db_name = take_anyif(db_name, isnotempty(db_name)),
-          coll_name = take_anyif(coll_name, isnotempty(coll_name)),
-          shape_id = take_anyif(ql_shape_key, isnotempty(ql_shape_key)),
-          sample_query_text = take_anyif(ql_raw_text, isnotempty(ql_raw_text)),
+          ql_db_name = take_anyif(ql_db_name, isnotempty(ql_db_name)),
+          ql_coll_name = take_anyif(ql_coll_name, isnotempty(ql_coll_name)),
+          ql_shape_id = take_anyif(ql_shape_key, isnotempty(ql_shape_key)),
+          ql_sample_query_text = take_anyif(ql_raw_text, isnotempty(ql_raw_text)),
           ql_returned_rows = sum(ql_returned_count)
-        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+        by ql_activity_id = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
   let ql_joined = materialize(
       ql_qrs
-      | join kind=inner ql_reqs on activityId_g
+      | join kind=inner ql_reqs on ql_activity_id
   );
   let ql_top_shapes = materialize(
       ql_joined
       | summarize
-          execution_count = count(),
-          total_ru = sum(ql_total_charge),
-          max_ru = max(ql_total_charge),
-          total_returned_rows = sum(ql_returned_rows),
-          throttled_count = sum(ql_is_429),
-          sample_text = take_anyif(sample_query_text, isnotempty(sample_query_text))
-        by db_name, coll_name, shape_id
-      | top 20 by total_ru desc
+          ql_execution_count = count(),
+          ql_total_ru = sum(ql_total_charge),
+          ql_max_ru = max(ql_total_charge),
+          ql_total_returned_rows = sum(ql_returned_rows),
+          ql_throttled_count = sum(ql_is_429),
+          ql_sample_text = take_anyif(ql_sample_query_text, isnotempty(ql_sample_query_text))
+        by ql_db_name, ql_coll_name, ql_shape_id
+      | top 20 by ql_total_ru desc
   );
   ql_top_shapes
   | project
-      db_name, coll_name, shape_id, sample_text,
-      execution_count, total_ru, max_ru, total_returned_rows,
-      throttled_count
+      ql_db_name, ql_coll_name, ql_shape_id, ql_sample_text,
+      ql_execution_count, ql_total_ru, ql_max_ru, ql_total_returned_rows,
+      ql_throttled_count
   
   // === Query 2: Window & Attributed Totals Query ===
   let ql_reqs = materialize(
@@ -121,21 +121,21 @@
       | summarize
           ql_total_charge = sum(todouble(coalesce(tostring(column_ifexists("requestCharge_s", "")), tostring(column_ifexists("RequestCharge_s", "")), "0"))),
           ql_earliest_time = min(TimeGenerated)
-        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "")
+        by ql_activity_id = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "")
   );
   let ql_qrs = AzureDiagnostics
       | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
-      | summarize by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+      | summarize by ql_activity_id = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
   let ql_window_total = toscalar(ql_reqs | summarize sum(ql_total_charge));
   let ql_min_time = toscalar(ql_reqs | summarize min(ql_earliest_time));
   ql_qrs
-  | join kind=inner ql_reqs on activityId_g
+  | join kind=inner ql_reqs on ql_activity_id
   | summarize
-      attributed_total_ru = sum(ql_total_charge),
-      total_executions = count()
+      ql_attributed_total_ru = sum(ql_total_charge),
+      ql_total_executions = count()
   | extend
-      window_total_ru = ql_window_total,
-      min_time_generated = ql_min_time
+      ql_window_total_ru = ql_window_total,
+      ql_min_time_generated = ql_min_time
   
   '''
 # ---
@@ -151,45 +151,45 @@
           ql_is_429 = max(iff(coalesce(tostring(column_ifexists("statusCode_s", "")), tostring(column_ifexists("StatusCode_s", "")), "") == "429", 1, 0)),
           ql_client_ip = take_any(coalesce(tostring(column_ifexists("clientIpAddress_s", "")), tostring(column_ifexists("ClientIpAddress_s", "")), "")),
           ql_aad_principal = take_any(coalesce(tostring(column_ifexists("aadPrincipalId_g", "")), tostring(column_ifexists("AadPrincipalId_g", "")), ""))
-        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+        by ql_activity_id = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
   let ql_qrs = AzureDiagnostics
       | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
       | where _ResourceId endswith "/databaseaccounts/cosmos-prod-eastus"
       | extend
-          db_name = coalesce(tostring(column_ifexists("databaseName_s", "")), tostring(column_ifexists("databasename_s", "")), tostring(column_ifexists("DatabaseName_s", "")), ""),
-          coll_name = coalesce(tostring(column_ifexists("collectionName_s", "")), tostring(column_ifexists("collectionname_s", "")), tostring(column_ifexists("CollectionName_s", "")), ""),
+          ql_db_name = coalesce(tostring(column_ifexists("databaseName_s", "")), tostring(column_ifexists("databasename_s", "")), tostring(column_ifexists("DatabaseName_s", "")), ""),
+          ql_coll_name = coalesce(tostring(column_ifexists("collectionName_s", "")), tostring(column_ifexists("collectionname_s", "")), tostring(column_ifexists("CollectionName_s", "")), ""),
           ql_shape_sig = coalesce(tostring(column_ifexists("shapesignature_s", "")), tostring(column_ifexists("ShapeSignature_s", "")), tostring(column_ifexists("shapeSignature_s", "")), ""),
           ql_raw_text = coalesce(tostring(column_ifexists("querytext_s", "")), tostring(column_ifexists("QueryText_s", "")), tostring(column_ifexists("queryText_s", "")), ""),
           ql_returned_count = todouble(coalesce(tostring(column_ifexists("numberofrowsreturned_s", "")), tostring(column_ifexists("numberOfRowsReturned_s", "")), tostring(column_ifexists("NumberOfRowsReturned_s", "")), "0"))
       | extend ql_shape_key = iff(isnotempty(ql_shape_sig), ql_shape_sig, hash_sha256(ql_raw_text))
       | summarize
-          db_name = take_anyif(db_name, isnotempty(db_name)),
-          coll_name = take_anyif(coll_name, isnotempty(coll_name)),
-          shape_id = take_anyif(ql_shape_key, isnotempty(ql_shape_key)),
-          sample_query_text = take_anyif(ql_raw_text, isnotempty(ql_raw_text)),
+          ql_db_name = take_anyif(ql_db_name, isnotempty(ql_db_name)),
+          ql_coll_name = take_anyif(ql_coll_name, isnotempty(ql_coll_name)),
+          ql_shape_id = take_anyif(ql_shape_key, isnotempty(ql_shape_key)),
+          ql_sample_query_text = take_anyif(ql_raw_text, isnotempty(ql_raw_text)),
           ql_returned_rows = sum(ql_returned_count)
-        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+        by ql_activity_id = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
   let ql_joined = materialize(
       ql_qrs
-      | join kind=inner ql_reqs on activityId_g
+      | join kind=inner ql_reqs on ql_activity_id
   );
   let ql_top_shapes = materialize(
       ql_joined
       | summarize
-          execution_count = count(),
-          total_ru = sum(ql_total_charge),
-          max_ru = max(ql_total_charge),
-          total_returned_rows = sum(ql_returned_rows),
-          throttled_count = sum(ql_is_429),
-          sample_text = take_anyif(sample_query_text, isnotempty(sample_query_text))
-        by db_name, coll_name, shape_id
-      | top 10 by total_ru desc
+          ql_execution_count = count(),
+          ql_total_ru = sum(ql_total_charge),
+          ql_max_ru = max(ql_total_charge),
+          ql_total_returned_rows = sum(ql_returned_rows),
+          ql_throttled_count = sum(ql_is_429),
+          ql_sample_text = take_anyif(ql_sample_query_text, isnotempty(ql_sample_query_text))
+        by ql_db_name, ql_coll_name, ql_shape_id
+      | top 10 by ql_total_ru desc
   );
   ql_top_shapes
   | project
-      db_name, coll_name, shape_id, sample_text,
-      execution_count, total_ru, max_ru, total_returned_rows,
-      throttled_count
+      ql_db_name, ql_coll_name, ql_shape_id, ql_sample_text,
+      ql_execution_count, ql_total_ru, ql_max_ru, ql_total_returned_rows,
+      ql_throttled_count
   
   // === Query 2: Window & Attributed Totals Query ===
   let ql_reqs = materialize(
@@ -199,22 +199,22 @@
       | summarize
           ql_total_charge = sum(todouble(coalesce(tostring(column_ifexists("requestCharge_s", "")), tostring(column_ifexists("RequestCharge_s", "")), "0"))),
           ql_earliest_time = min(TimeGenerated)
-        by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "")
+        by ql_activity_id = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "")
   );
   let ql_qrs = AzureDiagnostics
       | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
       | where _ResourceId endswith "/databaseaccounts/cosmos-prod-eastus"
-      | summarize by activityId_g = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
+      | summarize by ql_activity_id = coalesce(tostring(column_ifexists("activityId_g", "")), tostring(column_ifexists("ActivityId_g", "")), "");
   let ql_window_total = toscalar(ql_reqs | summarize sum(ql_total_charge));
   let ql_min_time = toscalar(ql_reqs | summarize min(ql_earliest_time));
   ql_qrs
-  | join kind=inner ql_reqs on activityId_g
+  | join kind=inner ql_reqs on ql_activity_id
   | summarize
-      attributed_total_ru = sum(ql_total_charge),
-      total_executions = count()
+      ql_attributed_total_ru = sum(ql_total_charge),
+      ql_total_executions = count()
   | extend
-      window_total_ru = ql_window_total,
-      min_time_generated = ql_min_time
+      ql_window_total_ru = ql_window_total,
+      ql_min_time_generated = ql_min_time
   
   '''
 # ---

@@ -71,44 +71,44 @@ def build_shapes_query(top_n: int = 20, account_filter: str | None = None) -> st
         ql_is_429 = max(iff({STATUS_CODE_EXPR} == "429", 1, 0)),
         ql_client_ip = take_any({CLIENT_IP_EXPR}),
         ql_aad_principal = take_any({AAD_PRINCIPAL_EXPR})
-      by activityId_g = {ACTIVITY_ID_EXPR};
+      by ql_activity_id = {ACTIVITY_ID_EXPR};
 let ql_qrs = AzureDiagnostics
     | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
 {acct_clause}    | extend
-        db_name = {DATABASE_NAME_EXPR},
-        coll_name = {COLLECTION_NAME_EXPR},
+        ql_db_name = {DATABASE_NAME_EXPR},
+        ql_coll_name = {COLLECTION_NAME_EXPR},
         ql_shape_sig = {SHAPE_SIGNATURE_EXPR},
         ql_raw_text = {QUERY_TEXT_EXPR},
         ql_returned_count = todouble({NUMBER_OF_ROWS_RETURNED_EXPR})
     | extend ql_shape_key = iff(isnotempty(ql_shape_sig), ql_shape_sig, hash_sha256(ql_raw_text))
     | summarize
-        db_name = take_anyif(db_name, isnotempty(db_name)),
-        coll_name = take_anyif(coll_name, isnotempty(coll_name)),
-        shape_id = take_anyif(ql_shape_key, isnotempty(ql_shape_key)),
-        sample_query_text = take_anyif(ql_raw_text, isnotempty(ql_raw_text)),
+        ql_db_name = take_anyif(ql_db_name, isnotempty(ql_db_name)),
+        ql_coll_name = take_anyif(ql_coll_name, isnotempty(ql_coll_name)),
+        ql_shape_id = take_anyif(ql_shape_key, isnotempty(ql_shape_key)),
+        ql_sample_query_text = take_anyif(ql_raw_text, isnotempty(ql_raw_text)),
         ql_returned_rows = sum(ql_returned_count)
-      by activityId_g = {ACTIVITY_ID_EXPR};
+      by ql_activity_id = {ACTIVITY_ID_EXPR};
 let ql_joined = materialize(
     ql_qrs
-    | join kind=inner ql_reqs on activityId_g
+    | join kind=inner ql_reqs on ql_activity_id
 );
 let ql_top_shapes = materialize(
     ql_joined
     | summarize
-        execution_count = count(),
-        total_ru = sum(ql_total_charge),
-        max_ru = max(ql_total_charge),
-        total_returned_rows = sum(ql_returned_rows),
-        throttled_count = sum(ql_is_429),
-        sample_text = take_anyif(sample_query_text, isnotempty(sample_query_text))
-      by db_name, coll_name, shape_id
-    | top {top_n} by total_ru desc
+        ql_execution_count = count(),
+        ql_total_ru = sum(ql_total_charge),
+        ql_max_ru = max(ql_total_charge),
+        ql_total_returned_rows = sum(ql_returned_rows),
+        ql_throttled_count = sum(ql_is_429),
+        ql_sample_text = take_anyif(ql_sample_query_text, isnotempty(ql_sample_query_text))
+      by ql_db_name, ql_coll_name, ql_shape_id
+    | top {top_n} by ql_total_ru desc
 );
 ql_top_shapes
 | project
-    db_name, coll_name, shape_id, sample_text,
-    execution_count, total_ru, max_ru, total_returned_rows,
-    throttled_count"""
+    ql_db_name, ql_coll_name, ql_shape_id, ql_sample_text,
+    ql_execution_count, ql_total_ru, ql_max_ru, ql_total_returned_rows,
+    ql_throttled_count"""
 
 
 def build_totals_query(account_filter: str | None = None) -> str:
@@ -131,21 +131,21 @@ def build_totals_query(account_filter: str | None = None) -> str:
 {acct_clause}    | summarize
         ql_total_charge = sum(todouble({REQUEST_CHARGE_EXPR})),
         ql_earliest_time = min(TimeGenerated)
-      by activityId_g = {ACTIVITY_ID_EXPR}
+      by ql_activity_id = {ACTIVITY_ID_EXPR}
 );
 let ql_qrs = AzureDiagnostics
     | where Category == "QueryRuntimeStatistics" and ResourceProvider =~ "MICROSOFT.DOCUMENTDB"
-{acct_clause}    | summarize by activityId_g = {ACTIVITY_ID_EXPR};
+{acct_clause}    | summarize by ql_activity_id = {ACTIVITY_ID_EXPR};
 let ql_window_total = toscalar(ql_reqs | summarize sum(ql_total_charge));
 let ql_min_time = toscalar(ql_reqs | summarize min(ql_earliest_time));
 ql_qrs
-| join kind=inner ql_reqs on activityId_g
+| join kind=inner ql_reqs on ql_activity_id
 | summarize
-    attributed_total_ru = sum(ql_total_charge),
-    total_executions = count()
+    ql_attributed_total_ru = sum(ql_total_charge),
+    ql_total_executions = count()
 | extend
-    window_total_ru = ql_window_total,
-    min_time_generated = ql_min_time"""
+    ql_window_total_ru = ql_window_total,
+    ql_min_time_generated = ql_min_time"""
 
 
 def build_preflight_check_query(account_filter: str | None = None) -> str:
@@ -167,25 +167,25 @@ def build_preflight_check_query(account_filter: str | None = None) -> str:
     | where ResourceProvider =~ "MICROSOFT.DOCUMENTDB"{acct_filter_line};
 let ql_counts = ql_base
 | summarize
-    dataplane_count = countif(Category == "DataPlaneRequests"),
-    queryruntime_count = countif(Category == "QueryRuntimeStatistics"),
-    earliest_time = min(TimeGenerated),
-    latest_time = max(TimeGenerated),
-    has_shapesignature = countif(
+    ql_dataplane_count = countif(Category == "DataPlaneRequests"),
+    ql_queryruntime_count = countif(Category == "QueryRuntimeStatistics"),
+    ql_earliest_time = min(TimeGenerated),
+    ql_latest_time = max(TimeGenerated),
+    ql_has_shapesignature = countif(
         Category == "QueryRuntimeStatistics" and isnotempty({SHAPE_SIGNATURE_EXPR})
     ),
-    has_querytext = countif(
+    ql_has_querytext = countif(
         Category == "QueryRuntimeStatistics" and isnotempty({QUERY_TEXT_EXPR})
     ),
-    has_aad_guid = countif(isnotempty({AAD_PRINCIPAL_EXPR})),
-    has_aad_str = countif(isnotempty({AAD_PRINCIPAL_STR_EXPR})),
-    has_client_ip = countif(isnotempty({CLIENT_IP_EXPR})),
-    has_useragent = countif(isnotempty({USER_AGENT_EXPR}));
+    ql_has_aad_guid = countif(isnotempty({AAD_PRINCIPAL_EXPR})),
+    ql_has_aad_str = countif(isnotempty({AAD_PRINCIPAL_STR_EXPR})),
+    ql_has_client_ip = countif(isnotempty({CLIENT_IP_EXPR})),
+    ql_has_useragent = countif(isnotempty({USER_AGENT_EXPR}));
 let ql_auth = toscalar(
     ql_base
     | where isnotempty({AUTH_TOKEN_TYPE_EXPR})
-    | summarize count() by auth_type = {AUTH_TOKEN_TYPE_EXPR}
-    | summarize make_bag(bag_pack(auth_type, count_))
+    | summarize ql_count = count() by ql_auth_type = {AUTH_TOKEN_TYPE_EXPR}
+    | summarize make_bag(bag_pack(ql_auth_type, ql_count))
 );
 ql_counts
-| extend auth_breakdown = ql_auth"""
+| extend ql_auth_breakdown = ql_auth"""

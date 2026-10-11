@@ -59,15 +59,15 @@ def make_sample_shapes_table(
         LogsTable populated with sample query shape records.
     """
     columns = [
-        "db_name",
-        "coll_name",
-        "shape_id",
-        "sample_text",
-        "execution_count",
-        "total_ru",
-        "max_ru",
-        "total_returned_rows",
-        "throttled_count",
+        "ql_db_name",
+        "ql_coll_name",
+        "ql_shape_id",
+        "ql_sample_text",
+        "ql_execution_count",
+        "ql_total_ru",
+        "ql_max_ru",
+        "ql_total_returned_rows",
+        "ql_throttled_count",
     ]
     if shapes is None:
         rows = [
@@ -104,26 +104,26 @@ def make_sample_shapes_table_with_empty_database() -> LogsTable:
     """Create a sample Top Shapes table with empty and null database/container records."""
     shapes = [
         {
-            "db_name": "",
-            "coll_name": "",
-            "shape_id": "shape_hash_empty_db",
-            "sample_text": "SELECT * FROM c WHERE c.active = true",
-            "execution_count": 80,
-            "total_ru": 400.0,
-            "max_ru": 12.0,
-            "total_returned_rows": 160.0,
-            "throttled_count": 1,
+            "ql_db_name": "",
+            "ql_coll_name": "",
+            "ql_shape_id": "shape_hash_empty_db",
+            "ql_sample_text": "SELECT * FROM c WHERE c.active = true",
+            "ql_execution_count": 80,
+            "ql_total_ru": 400.0,
+            "ql_max_ru": 12.0,
+            "ql_total_returned_rows": 160.0,
+            "ql_throttled_count": 1,
         },
         {
-            "db_name": None,
-            "coll_name": "orders",
-            "shape_id": "shape_hash_null_db",
-            "sample_text": "SELECT c.id FROM c",
-            "execution_count": 30,
-            "total_ru": 150.0,
-            "max_ru": 8.0,
-            "total_returned_rows": 60.0,
-            "throttled_count": 0,
+            "ql_db_name": None,
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_hash_null_db",
+            "ql_sample_text": "SELECT c.id FROM c",
+            "ql_execution_count": 30,
+            "ql_total_ru": 150.0,
+            "ql_max_ru": 8.0,
+            "ql_total_returned_rows": 60.0,
+            "ql_throttled_count": 0,
         },
     ]
     return make_sample_shapes_table(shapes=shapes)
@@ -147,10 +147,10 @@ def make_sample_totals_table(
         LogsTable with a single totals row.
     """
     columns = [
-        "window_total_ru",
-        "attributed_total_ru",
-        "total_executions",
-        "min_time_generated",
+        "ql_window_total_ru",
+        "ql_attributed_total_ru",
+        "ql_total_executions",
+        "ql_min_time_generated",
     ]
     rows = [[window_total_ru, attributed_total_ru, total_executions, min_time_generated]]
     return make_logs_table(columns=columns, rows=rows)
@@ -188,17 +188,17 @@ def make_sample_preflight_table(
         LogsTable with a single preflight diagnostic row.
     """
     columns = [
-        "dataplane_count",
-        "queryruntime_count",
-        "earliest_time",
-        "latest_time",
-        "has_shapesignature",
-        "has_querytext",
-        "has_aad_guid",
-        "has_aad_str",
-        "has_client_ip",
-        "has_useragent",
-        "auth_breakdown",
+        "ql_dataplane_count",
+        "ql_queryruntime_count",
+        "ql_earliest_time",
+        "ql_latest_time",
+        "ql_has_shapesignature",
+        "ql_has_querytext",
+        "ql_has_aad_guid",
+        "ql_has_aad_str",
+        "ql_has_client_ip",
+        "ql_has_useragent",
+        "ql_auth_breakdown",
     ]
     auth = auth_breakdown if auth_breakdown is not None else {"AAD": 1200, "PrimaryMasterKey": 300}
     rows = [
