@@ -46,6 +46,13 @@ Run the unit and snapshot test suite with coverage enforcement (minimum 85% cove
 uv run pytest --cov=querylens --cov-fail-under=85 -m "not integration"
 ```
 
+### Code Coverage & Codecov
+
+QueryLens enforces a strict minimum 85% test coverage gate in CI (`pytest --cov=querylens --cov-fail-under=85 -m "not integration"`). In addition, coverage reports (`coverage.xml`) are uploaded to [Codecov](https://codecov.io/gh/mwalczyk81/querylens) via the `codecov/codecov-action` step.
+
+- **`CODECOV_TOKEN` Secret**: Required to authenticate uploads with Codecov. The workflow references `${{ secrets.CODECOV_TOKEN }}`.
+- **Behavior If Missing**: The step is configured with `fail_ci_if_error: false`. If the secret is omitted or running in an external fork without repository secrets, the upload step fails gracefully without failing the CI job. The authoritative local coverage gate in `pytest` remains enforced. Furthermore, `codecov.yml` sets both project and patch coverage status checks to `informational: true`, ensuring missing Codecov statuses will not block pull request merges.
+
 ### Type Checking
 
 Type checking is performed using [Pyrefly](https://github.com/facebook/pyrefly) in strict mode:
@@ -86,6 +93,34 @@ uv run python scripts/gen_readme_assets.py --refresh
 ```
 
 When refreshing sample run metrics, ensure the single-query `--json` excerpt in `README.md` is updated to match. A drift test in `tests/unit/test_readme_assets.py` runs in CI to verify byte-for-byte equality for the SVG and consistency of the README JSON excerpt against `sample-run.json`.
+
+### Continuous Fuzzing (ClusterFuzzLite & Atheris)
+
+To detect parser crashes, unhandled exceptions, and invariant regressions, QueryLens integrates continuous fuzzing powered by [ClusterFuzzLite](https://google.github.io/clusterfuzzlite/) and [Atheris](https://github.com/google/atheris) (Google's coverage-guided Python fuzzer built on libFuzzer).
+
+- **Fuzz Targets (`.clusterfuzzlite/`)**:
+  - `fuzz_query_metrics.py`: Fuzzes `parse_query_metrics_header` with arbitrary unicode strings to ensure robust semicolon-delimited header parsing.
+  - `fuzz_index_utilization.py`: Fuzzes `parse_index_utilization_header` with arbitrary strings to verify safe Base64 decoding and JSON handling.
+  - `fuzz_kql_escaping.py`: Fuzzes `escape_kql_string` to assert KQL injection invariants (null stripping, quote/control character escaping).
+  - `fuzz_duration_parser.py`: Fuzzes `parse_duration_string` to assert bounds checks and clean `DiscoveryValidationError` handling.
+  - `fuzz_discovery_options.py`: Fuzzes `DiscoveryOptions` Pydantic validators with fuzzed provider streams.
+- **Seed Corpora**: Valid seed inputs are packaged in `.clusterfuzzlite/*_seed_corpus.zip` to accelerate coverage exploration.
+- **CI Fuzzing Workflow (`.github/workflows/cflite_pr.yml`)**: Runs on pull requests targeting `main` in `code-change` mode with a fast 30-second time budget.
+- **Environment Isolation**: Atheris is a Linux-native engine requiring C runtime instrumentation. It is deliberately **not** included in `pyproject.toml` or developer virtual environments to ensure Windows and macOS developers can install and run tests without C toolchain friction. Atheris is present only in the fuzz builder image (`gcr.io/oss-fuzz-base/base-builder-python`).
+
+#### Running Fuzz Targets Locally
+
+To run fuzz targets locally, use Docker or a Linux environment (such as WSL):
+
+```bash
+# Option A: Run via Docker (recommended on Windows / macOS)
+docker build -t querylens-fuzz -f .clusterfuzzlite/Dockerfile .
+docker run -it --rm querylens-fuzz python3 .clusterfuzzlite/fuzz_query_metrics.py -max_total_time=30
+
+# Option B: Run in a Linux / WSL virtual environment with Atheris installed
+pip install atheris
+python .clusterfuzzlite/fuzz_query_metrics.py -max_total_time=30
+```
 
 ---
 
@@ -147,6 +182,15 @@ When proposing changes that alter:
 - Safety guarantees, authentication requirements, or metrics extraction
 
 Please create or update the corresponding ADR using the numbered MADR format (`YYYY-short-title.md`) and reference it in your pull request.
+
+---
+
+## CI/CD Security & Action Pinning Policy
+
+In accordance with OpenSSF Scorecard supply chain security recommendations:
+
+- **Immutable Commit SHA Pinning**: All third-party GitHub Actions across all workflow files (`ci.yml`, `release.yml`, `scorecard.yml`, `dependency-review.yml`, `cflite_pr.yml`) must be pinned to full 40-character commit SHAs, accompanied by an inline comment indicating the human-readable tag/version (e.g. `uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1`).
+- **Exceptions**: Reusable workflows called via `workflow_call` cannot always be pinned by commit SHA if GitHub requires a ref/tag, or certain composite actions with external dependencies. Any such exception must be explicitly justified and documented in an inline workflow comment. Currently, QueryLens maintains zero action-pinning exceptions; all actions are strictly pinned by commit SHA.
 
 ---
 
