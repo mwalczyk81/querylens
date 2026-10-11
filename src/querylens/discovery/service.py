@@ -23,6 +23,8 @@ from querylens.discovery.models import (
     WorkloadDiscoverySummary,
 )
 
+RU_FLOAT_TOLERANCE: float = 0.01
+
 
 def _mask_workspace_id(workspace_id: UUID) -> str:
     """Mask workspace ID to display only its last 4 characters."""
@@ -235,7 +237,20 @@ def run_discovery(
             "Run 'querylens discover --check' to verify workspace settings."
         )
 
-    unattributed_ru = max(0.0, window_total_ru - attributed_total_ru)
+    # Validate window totals consistency without silent clamping
+    if attributed_total_ru > window_total_ru + RU_FLOAT_TOLERANCE:
+        raise InternalConsistencyError(
+            f"Attributed RU ({attributed_total_ru:,.2f}) exceeds total window RU "
+            f"({window_total_ru:,.2f}) by more than {RU_FLOAT_TOLERANCE} RU tolerance. "
+            "Attributed queries cannot consume more RU than all requests in window."
+        )
+
+    if attributed_total_ru > window_total_ru:
+        # Attributed RU slightly exceeds window RU within float tolerance; normalize to 0.0
+        unattributed_ru = 0.0
+    else:
+        unattributed_ru = window_total_ru - attributed_total_ru
+
     unattributed_ru_pct = (
         (unattributed_ru / window_total_ru * 100.0) if window_total_ru > 0.0 else 0.0
     )

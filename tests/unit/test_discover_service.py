@@ -726,3 +726,39 @@ def test_run_preflight_check_passes_exact_timespan_tuple() -> None:
     assert call_kwargs["timespan"] == expected_timespan
     assert report.window_start == expected_start
     assert report.window_end == expected_end
+
+
+def test_run_discovery_attributed_exceeding_window_ru_beyond_tolerance_raises_error() -> None:
+    """Verify error raised if attributed RU exceeds total window RU beyond float tolerance."""
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table()
+    # attributed 1050.0 > window 1000.0 (by 50.0 RU, which is > 0.01 tolerance)
+    totals_table = make_sample_totals_table(window_total_ru=1000.0, attributed_total_ru=1050.0)
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    with pytest.raises(InternalConsistencyError, match="exceeds total window RU .* by more than"):
+        run_discovery(options=options, client=mock_client)
+
+
+def test_run_discovery_attributed_exceeding_window_ru_within_tolerance_normalizes_to_zero() -> None:
+    """Verify unattributed RU normalized to 0.0 when attributed exceeds window within 0.01."""
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table()
+    # attributed 1000.005 > window 1000.0 (by 0.005 RU, which is <= 0.01 tolerance)
+    totals_table = make_sample_totals_table(window_total_ru=1000.0, attributed_total_ru=1000.005)
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    summary = run_discovery(options=options, client=mock_client)
+
+    assert summary.total_ru == 1000.0
+    assert summary.attributed_total_ru == 1000.005
+    assert summary.unattributed_ru == 0.0
+    assert summary.unattributed_ru_pct == 0.0
