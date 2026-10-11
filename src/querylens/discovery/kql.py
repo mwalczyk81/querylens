@@ -82,10 +82,10 @@ let ql_qrs = AzureDiagnostics
         ql_returned_count = todouble({NUMBER_OF_ROWS_RETURNED_EXPR})
     | extend ql_shape_key = iff(isnotempty(ql_shape_sig), ql_shape_sig, hash_sha256(ql_raw_text))
     | summarize
-        db_name = take_any(db_name),
-        coll_name = take_any(coll_name),
-        shape_id = take_any(ql_shape_key),
-        sample_query_text = take_any(ql_raw_text),
+        db_name = take_anyif(db_name, isnotempty(db_name)),
+        coll_name = take_anyif(coll_name, isnotempty(coll_name)),
+        shape_id = take_anyif(ql_shape_key, isnotempty(ql_shape_key)),
+        sample_query_text = take_anyif(ql_raw_text, isnotempty(ql_raw_text)),
         ql_returned_rows = sum(ql_returned_count)
       by activityId_g = {ACTIVITY_ID_EXPR};
 let ql_joined = materialize(
@@ -100,7 +100,7 @@ let ql_top_shapes = materialize(
         max_ru = max(ql_total_charge),
         total_returned_rows = sum(ql_returned_rows),
         throttled_count = sum(ql_is_429),
-        sample_text = take_any(sample_query_text)
+        sample_text = take_anyif(sample_query_text, isnotempty(sample_query_text))
       by db_name, coll_name, shape_id
     | top {top_n} by total_ru desc
 );

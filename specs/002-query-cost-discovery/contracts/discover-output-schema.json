@@ -69,10 +69,12 @@
         ],
         "properties": {
           "database": {
-            "type": "string"
+            "type": "string",
+            "description": "Database name, or '(unknown)' if diagnostic telemetry lacked database identifier."
           },
           "container": {
-            "type": "string"
+            "type": "string",
+            "description": "Container name, or '(unknown)' if diagnostic telemetry lacked container identifier."
           },
           "shape_id": {
             "type": "string"

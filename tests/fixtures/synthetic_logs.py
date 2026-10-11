@@ -100,6 +100,35 @@ def make_sample_shapes_table(
     return make_logs_table(columns=columns, rows=rows)
 
 
+def make_sample_shapes_table_with_empty_database() -> LogsTable:
+    """Create a sample Top Shapes table with empty and null database/container records."""
+    shapes = [
+        {
+            "db_name": "",
+            "coll_name": "",
+            "shape_id": "shape_hash_empty_db",
+            "sample_text": "SELECT * FROM c WHERE c.active = true",
+            "execution_count": 80,
+            "total_ru": 400.0,
+            "max_ru": 12.0,
+            "total_returned_rows": 160.0,
+            "throttled_count": 1,
+        },
+        {
+            "db_name": None,
+            "coll_name": "orders",
+            "shape_id": "shape_hash_null_db",
+            "sample_text": "SELECT c.id FROM c",
+            "execution_count": 30,
+            "total_ru": 150.0,
+            "max_ru": 8.0,
+            "total_returned_rows": 60.0,
+            "throttled_count": 0,
+        },
+    ]
+    return make_sample_shapes_table(shapes=shapes)
+
+
 def make_sample_totals_table(
     window_total_ru: float = 1200.0,
     attributed_total_ru: float = 870.0,

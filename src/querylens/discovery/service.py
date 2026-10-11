@@ -143,10 +143,15 @@ def run_discovery(
             except (KeyError, IndexError):
                 sample_text = None
 
+            raw_db = row["db_name"]
+            raw_coll = row["coll_name"]
+            db_val = str(raw_db).strip() if raw_db else "(unknown)"
+            coll_val = str(raw_coll).strip() if raw_coll else "(unknown)"
+
             shapes.append(
                 DiscoveredQueryShape(
-                    database=str(row["db_name"] or ""),
-                    container=str(row["coll_name"] or ""),
+                    database=db_val,
+                    container=coll_val,
                     shape_id=str(row["shape_id"] or ""),
                     sample_query_text=sample_text,
                     execution_count=exec_count,

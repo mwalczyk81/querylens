@@ -109,7 +109,7 @@ A platform engineer investigating an unexpected RU spike needs to determine whic
   - Average documents returned per execution
   - Ratio of total RU per returned document (MUST emit `null` when total returned rows is 0)
   - Count of throttled executions (HTTP 429) where correlated from `DataPlaneRequests`
-  - Target database name (`databaseName_s`) and container name (`collectionName_s`)
+  - Target database name (`databaseName_s`) and container name (`collectionName_s`), defaulting to `"(unknown)"` if missing/empty in diagnostic records so spend is never discarded
   - Up to top 3 callers with their individual RU share percentages within the shape
   - Sample obfuscated query text
 - **FR-006**: System MUST compute and report an unattributed RU summary representing data-plane operations in the scope and window that did not join to a query shape (such as point reads, point writes, administrative calls, or queries without runtime statistics), reporting total unattributed RUs and its percentage share of total database RU spend in both terminal and JSON outputs.
@@ -138,8 +138,8 @@ A platform engineer investigating an unexpected RU spike needs to determine whic
 ### Key Entities *(include if feature involves data)*
 
 - **DiscoveredQueryShape**: Represents an aggregated query shape across multiple executions, identified by `(database_name, container_name, shape_id)`.
-  - `database_name`: Name of the target Cosmos DB database.
-  - `container_name`: Name of the target Cosmos DB container.
+  - `database_name`: Name of the target Cosmos DB database (defaults to `"(unknown)"` if missing or empty in diagnostic records).
+  - `container_name`: Name of the target Cosmos DB container (defaults to `"(unknown)"` if missing or empty in diagnostic records).
   - `shape_id`: Unique shape identifier (`shapesignature_s` string or SHA-256 hash of query text).
   - `execution_count`: Total number of times this shape executed within the time window.
   - `total_ru`: Cumulative Request Units consumed across all executions.

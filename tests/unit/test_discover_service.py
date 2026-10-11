@@ -15,6 +15,7 @@ from tests.fixtures.synthetic_logs import (
     make_logs_query_result,
     make_sample_preflight_table,
     make_sample_shapes_table,
+    make_sample_shapes_table_with_empty_database,
     make_sample_totals_table,
 )
 
@@ -225,3 +226,42 @@ def test_run_preflight_check_empty_workspace() -> None:
     assert report.earliest_record is None
     assert report.latest_record is None
     assert report.retention_warning is False
+
+
+def test_run_discovery_with_empty_database_and_container() -> None:
+    """Verify run_discovery does not drop rows with empty database/container."""
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table_with_empty_database()
+    totals_table = make_sample_totals_table(
+        window_total_ru=1000.0,
+        attributed_total_ru=550.0,
+        total_executions=110,
+        min_time_generated=(datetime.now(UTC) - timedelta(hours=25)).isoformat(),
+    )
+
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    summary = run_discovery(options=options, client=mock_client)
+
+    # Invariant: Spend is NOT discarded, exactly 2 shapes preserved
+    assert summary.discovered_query_count == 2
+    assert len(summary.results) == 2
+    assert summary.total_ru == 1000.0
+    assert summary.attributed_total_ru == 550.0
+    assert summary.unattributed_ru == 450.0
+
+    # First shape has empty strings -> (unknown)
+    shape1 = summary.results[0]
+    assert shape1.database == "(unknown)"
+    assert shape1.container == "(unknown)"
+    assert shape1.total_ru == 400.0
+
+    # Second shape has None db_name and "orders" coll_name
+    shape2 = summary.results[1]
+    assert shape2.database == "(unknown)"
+    assert shape2.container == "orders"
+    assert shape2.total_ru == 150.0

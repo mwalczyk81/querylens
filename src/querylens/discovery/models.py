@@ -150,8 +150,8 @@ class DiscoveredQueryShape(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    database: Annotated[str, Field(min_length=1)]
-    container: Annotated[str, Field(min_length=1)]
+    database: str = "(unknown)"
+    container: str = "(unknown)"
     shape_id: Annotated[str, Field(min_length=1)]
     sample_query_text: str | None = None
     execution_count: Annotated[int, Field(ge=1)]
@@ -163,6 +163,15 @@ class DiscoveredQueryShape(BaseModel):
     ru_per_returned_row: float | None = Field(default=None, ge=0.0)
     throttled_count: Annotated[int, Field(ge=0)]
     top_callers: list[CallerAttribution] = Field(default_factory=list, max_length=3)
+
+    @field_validator("database", "container", mode="before")
+    @classmethod
+    def default_empty_to_unknown(cls, v: object) -> str:
+        """Default empty, whitespace, or None values to '(unknown)'."""
+        if v is None:
+            return "(unknown)"
+        s = str(v).strip()
+        return s if s else "(unknown)"
 
 
 class WorkloadDiscoverySummary(BaseModel):

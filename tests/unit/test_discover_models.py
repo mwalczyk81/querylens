@@ -233,3 +233,36 @@ def test_custom_exceptions_hierarchy() -> None:
     assert issubclass(DiscoveryAuthError, Exception)
     assert issubclass(DiscoveryConnectionError, Exception)
     assert issubclass(DiscoveryValidationError, Exception)
+
+
+def test_discovered_query_shape_empty_database_and_container_defaults() -> None:
+    """Verify empty or None database and container default to '(unknown)'."""
+    shape1 = DiscoveredQueryShape(
+        database="",
+        container="",
+        shape_id="shape_1",
+        execution_count=10,
+        total_ru=100.0,
+        avg_ru=10.0,
+        max_ru=10.0,
+        ru_share_pct=5.0,
+        avg_returned_rows=1.0,
+        throttled_count=0,
+    )
+    assert shape1.database == "(unknown)"
+    assert shape1.container == "(unknown)"
+
+    shape2 = DiscoveredQueryShape(
+        database=cast(Any, None),
+        container=cast(Any, "   "),
+        shape_id="shape_2",
+        execution_count=5,
+        total_ru=50.0,
+        avg_ru=10.0,
+        max_ru=10.0,
+        ru_share_pct=2.5,
+        avg_returned_rows=1.0,
+        throttled_count=0,
+    )
+    assert shape2.database == "(unknown)"
+    assert shape2.container == "(unknown)"

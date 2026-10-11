@@ -24,8 +24,8 @@ Aggregated performance and cost metrics for a distinct query shape executing on 
 
 | Field | Type | Description | Validation Rules |
 | --- | --- | --- | --- |
-| `database` | `str` | Target Cosmos DB database name. | Non-empty string. |
-| `container` | `str` | Target Cosmos DB container collection name. | Non-empty string. |
+| `database` | `str` | Target Cosmos DB database name (defaults to `"(unknown)"` if missing or empty in diagnostic records). | Non-empty string. |
+| `container` | `str` | Target Cosmos DB container collection name (defaults to `"(unknown)"` if missing or empty in diagnostic records). | Non-empty string. |
 | `shape_id` | `str` | Canonical identifier for query structure (`shapesignature_s` or SHA-256 hash). | Non-empty string, hex/hash format. |
 | `sample_query_text` | `str \| None` | Obfuscated query text sample (redacted literals). Omitted from `--json` output unless `--show-text` is passed; truncated to 200 chars in console tables unless `--show-text`. | Optional string (`None` by default in JSON). |
 | `execution_count` | `int` | Total number of query executions observed in window. | `>= 1` |
