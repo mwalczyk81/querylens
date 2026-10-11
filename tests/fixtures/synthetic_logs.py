@@ -68,6 +68,7 @@ def make_sample_shapes_table(
         "ql_max_ru",
         "ql_total_returned_rows",
         "ql_throttled_count",
+        "ql_top_callers",
     ]
     if shapes is None:
         rows = [
@@ -81,6 +82,7 @@ def make_sample_shapes_table(
                 12.5,
                 200.0,
                 0,
+                [],
             ],
             [
                 "ecommerce",
@@ -92,10 +94,13 @@ def make_sample_shapes_table(
                 15.0,
                 80.0,
                 2,
+                [],
             ],
         ]
     else:
-        rows = [[s.get(col) for col in columns] for s in shapes]
+        rows = [
+            [s.get(col, [] if col == "ql_top_callers" else None) for col in columns] for s in shapes
+        ]
 
     return make_logs_table(columns=columns, rows=rows)
 
@@ -343,3 +348,153 @@ def make_sample_preflight_table_with_unscoped_aad_guid() -> LogsTable:
         has_useragent=950,
         auth_breakdown={"AAD": 1000},
     )
+
+
+def make_sample_shapes_table_with_callers(
+    callers: list[dict[str, Any]] | None = None,
+) -> LogsTable:
+    """Create a sample Top Shapes table with populated callers."""
+    if callers is None:
+        callers = [
+            {
+                "identifier": "00000000-0000-0000-0000-000000000001",
+                "caller_ru": 350.0,
+                "identifier_type": "aad_principal",
+            },
+            {
+                "identifier": "192.168.1.1",
+                "caller_ru": 150.0,
+                "identifier_type": "client_ip",
+            },
+        ]
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_hash_with_callers",
+            "ql_sample_text": "SELECT * FROM c WHERE c.customer_id = @id",
+            "ql_execution_count": 100,
+            "ql_total_ru": 500.0,
+            "ql_max_ru": 12.5,
+            "ql_total_returned_rows": 200.0,
+            "ql_throttled_count": 0,
+            "ql_top_callers": callers,
+        }
+    ]
+    return make_sample_shapes_table(shapes=shapes)
+
+
+def make_sample_shapes_table_with_flattened_callers() -> LogsTable:
+    """Create sample Top Shapes table with flattened caller list (live gate regression fixture)."""
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_hash_flat",
+            "ql_sample_text": "SELECT * FROM c",
+            "ql_execution_count": 10,
+            "ql_total_ru": 100.0,
+            "ql_max_ru": 10.0,
+            "ql_total_returned_rows": 20.0,
+            "ql_throttled_count": 0,
+            "ql_top_callers": ["00000000-0000-0000-0000-000000000001", 70.0, "192.168.1.1", 30.0],
+        }
+    ]
+    return make_sample_shapes_table(shapes=shapes)
+
+
+def make_sample_shapes_table_with_nested_pairs_callers() -> LogsTable:
+    """Create a sample Top Shapes table with nested pair callers."""
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_hash_pairs",
+            "ql_sample_text": "SELECT * FROM c",
+            "ql_execution_count": 10,
+            "ql_total_ru": 100.0,
+            "ql_max_ru": 10.0,
+            "ql_total_returned_rows": 20.0,
+            "ql_throttled_count": 0,
+            "ql_top_callers": [
+                ["00000000-0000-0000-0000-000000000001", 70.0],
+                ["192.168.1.1", 30.0],
+            ],
+        }
+    ]
+    return make_sample_shapes_table(shapes=shapes)
+
+
+def make_sample_shapes_table_with_too_many_callers() -> LogsTable:
+    """Create a sample Top Shapes table with 4 callers exceeding max 3."""
+    callers = [
+        {"identifier": f"10.0.0.{i}", "caller_ru": 25.0, "identifier_type": "client_ip"}
+        for i in range(1, 5)
+    ]
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_hash_too_many",
+            "ql_sample_text": "SELECT * FROM c",
+            "ql_execution_count": 10,
+            "ql_total_ru": 100.0,
+            "ql_max_ru": 10.0,
+            "ql_total_returned_rows": 20.0,
+            "ql_throttled_count": 0,
+            "ql_top_callers": callers,
+        }
+    ]
+    return make_sample_shapes_table(shapes=shapes)
+
+
+def make_sample_shapes_table_with_invalid_caller_types() -> LogsTable:
+    """Create a sample Top Shapes table with invalid types in caller dict."""
+    callers = [
+        {
+            "identifier": "00000000-0000-0000-0000-000000000001",
+            "caller_ru": "not_a_number",
+            "identifier_type": "aad_principal",
+        }
+    ]
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_hash_bad_type",
+            "ql_sample_text": "SELECT * FROM c",
+            "ql_execution_count": 10,
+            "ql_total_ru": 100.0,
+            "ql_max_ru": 10.0,
+            "ql_total_returned_rows": 20.0,
+            "ql_throttled_count": 0,
+            "ql_top_callers": callers,
+        }
+    ]
+    return make_sample_shapes_table(shapes=shapes)
+
+
+def make_sample_shapes_table_with_excess_caller_ru() -> LogsTable:
+    """Create a sample Top Shapes table where caller RU exceeds shape total RU."""
+    callers = [
+        {
+            "identifier": "00000000-0000-0000-0000-000000000001",
+            "caller_ru": 600.0,
+            "identifier_type": "aad_principal",
+        }
+    ]
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_hash_excess_caller_ru",
+            "ql_sample_text": "SELECT * FROM c",
+            "ql_execution_count": 10,
+            "ql_total_ru": 500.0,
+            "ql_max_ru": 10.0,
+            "ql_total_returned_rows": 20.0,
+            "ql_throttled_count": 0,
+            "ql_top_callers": callers,
+        }
+    ]
+    return make_sample_shapes_table(shapes=shapes)

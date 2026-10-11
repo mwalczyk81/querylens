@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from querylens.discovery.models import (
+    CallerAttribution,
     DiscoveredQueryShape,
     PreflightCheckReport,
     WorkloadDiscoverySummary,
@@ -167,3 +168,148 @@ def test_discover_json_matches_contract_schema_with_unknown_database() -> None:
 
     assert item["database"] == "(unknown)"
     assert item["container"] == "(unknown)"
+
+
+def test_discover_json_omits_query_text_by_default() -> None:
+    """Verify default discovery JSON omits sample_query_text for privacy (FR-012, T030)."""
+    now = datetime.now(UTC)
+    shape = DiscoveredQueryShape(
+        database="ecommerce",
+        container="orders",
+        shape_id="hash_query_privacy",
+        sample_query_text="SELECT * FROM c WHERE c.secret = 'confidential'",
+        execution_count=10,
+        total_ru=100.0,
+        avg_ru=10.0,
+        max_ru=20.0,
+        ru_share_pct=10.0,
+        avg_returned_rows=2.0,
+        ru_per_returned_row=5.0,
+        throttled_count=0,
+    )
+    summary = WorkloadDiscoverySummary(
+        window_start=now - timedelta(hours=24),
+        window_end=now,
+        total_ru=1000.0,
+        attributed_total_ru=800.0,
+        unattributed_ru=200.0,
+        unattributed_ru_pct=20.0,
+        discovered_query_count=1,
+        results=[shape],
+        retention_warning=False,
+        masked_workspace_id="...9abc",
+    )
+
+    json_str = serialize_discovery_json(summary, show_text=False)
+    data = json.loads(json_str)
+
+    assert len(data["results"]) == 1
+    assert "sample_query_text" not in data["results"][0]
+
+
+def test_discover_json_includes_query_text_with_show_text() -> None:
+    """Verify discovery JSON includes sample_query_text when show_text=True (FR-012, T030)."""
+    now = datetime.now(UTC)
+    expected_text = "SELECT * FROM c WHERE c.secret = 'confidential'"
+    shape = DiscoveredQueryShape(
+        database="ecommerce",
+        container="orders",
+        shape_id="hash_query_privacy",
+        sample_query_text=expected_text,
+        execution_count=10,
+        total_ru=100.0,
+        avg_ru=10.0,
+        max_ru=20.0,
+        ru_share_pct=10.0,
+        avg_returned_rows=2.0,
+        ru_per_returned_row=5.0,
+        throttled_count=0,
+    )
+    summary = WorkloadDiscoverySummary(
+        window_start=now - timedelta(hours=24),
+        window_end=now,
+        total_ru=1000.0,
+        attributed_total_ru=800.0,
+        unattributed_ru=200.0,
+        unattributed_ru_pct=20.0,
+        discovered_query_count=1,
+        results=[shape],
+        retention_warning=False,
+        masked_workspace_id="...9abc",
+    )
+
+    json_str = serialize_discovery_json(summary, show_text=True)
+    data = json.loads(json_str)
+
+    assert len(data["results"]) == 1
+    assert data["results"][0]["sample_query_text"] == expected_text
+
+
+def test_discover_json_with_top_callers_matches_schema() -> None:
+    """Verify serialized discovery output with top_callers matches contract schema (T030)."""
+    schema_path = (
+        Path(__file__).parents[2]
+        / "specs"
+        / "002-query-cost-discovery"
+        / "contracts"
+        / "discover-output-schema.json"
+    )
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+
+    now = datetime.now(UTC)
+    shape = DiscoveredQueryShape(
+        database="ecommerce",
+        container="orders",
+        shape_id="hash_with_callers",
+        execution_count=50,
+        total_ru=500.0,
+        avg_ru=10.0,
+        max_ru=25.0,
+        ru_share_pct=50.0,
+        avg_returned_rows=2.0,
+        ru_per_returned_row=5.0,
+        throttled_count=0,
+        top_callers=[
+            CallerAttribution(
+                identifier="00000000-0000-0000-0000-000000000001",
+                ru_share_pct=70.0,
+                identifier_type="aad_principal",
+            ),
+            CallerAttribution(
+                identifier="10.0.0.1",
+                ru_share_pct=30.0,
+                identifier_type="client_ip",
+            ),
+        ],
+    )
+    summary = WorkloadDiscoverySummary(
+        window_start=now - timedelta(hours=24),
+        window_end=now,
+        total_ru=1000.0,
+        attributed_total_ru=800.0,
+        unattributed_ru=200.0,
+        unattributed_ru_pct=20.0,
+        discovered_query_count=1,
+        results=[shape],
+        retention_warning=False,
+        masked_workspace_id="...9abc",
+    )
+
+    json_str = serialize_discovery_json(summary)
+    data = json.loads(json_str)
+
+    item = data["results"][0]
+    assert "top_callers" in item
+    assert len(item["top_callers"]) == 2
+    assert item["top_callers"][0]["identifier"] == "00000000-0000-0000-0000-000000000001"
+    assert item["top_callers"][0]["ru_share_pct"] == 70.0
+    assert item["top_callers"][0]["identifier_type"] == "aad_principal"
+    assert item["top_callers"][1]["identifier"] == "10.0.0.1"
+    assert item["top_callers"][1]["ru_share_pct"] == 30.0
+    assert item["top_callers"][1]["identifier_type"] == "client_ip"
+
+    # Schema items validation
+    caller_schema = schema["properties"]["results"]["items"]["properties"]["top_callers"]["items"]
+    for caller in item["top_callers"]:
+        for req in caller_schema["required"]:
+            assert req in caller

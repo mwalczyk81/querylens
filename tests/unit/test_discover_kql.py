@@ -28,9 +28,40 @@ def test_build_shapes_query_default() -> None:
     assert "ql_known_pairs" not in query
     assert "ql_single_pair_shapes" not in query
     assert "_ResourceId endswith" not in query
-    # In US1, top_callers_per_shape is omitted
-    assert "top_callers" not in query
-    assert "bag_pack" not in query
+    # In US3, top callers are aggregated and packed into dynamic property bags
+    assert "let ql_top_shape_keys = ql_top_shapes" in query
+    assert "let ql_top_callers_per_shape = ql_resolved_activities" in query
+    assert "join kind=inner ql_top_shape_keys on ql_db_name, ql_coll_name, ql_shape_id" in query
+    assert "bag_pack(" in query
+    assert "make_list(" in query
+    assert "ql_top_callers = coalesce(ql_top_callers, dynamic([]))" in query
+
+
+def test_build_shapes_query_callers_ranking_and_packing() -> None:
+    """Verify build_shapes_query implements per-shape caller ranking and packing (US3, T031)."""
+    query = build_shapes_query(top_n=20)
+    # Principal GUID preferred over client IP, omitted if both empty
+    assert (
+        "ql_caller_id = iff(isnotempty(ql_aad_principal), ql_aad_principal, ql_client_ip)" in query
+    )
+    assert "ql_caller_type = iff(" in query
+    assert '"aad_principal"' in query
+    assert '"client_ip"' in query
+    assert 'where isnotempty(ql_caller_id) and ql_caller_type != "none"' in query
+    # Ordered by shape then caller RU descending
+    assert "order by ql_shape_id asc, ql_caller_ru desc" in query
+    # Bounded to at most 3 callers per shape
+    assert "bag_pack(" in query
+    assert '"identifier", ql_caller_id' in query
+    assert '"caller_ru", ql_caller_ru' in query
+    assert '"identifier_type", ql_caller_type' in query
+    assert "make_list(" in query
+    # Left outer join preserves shapes without callers
+    assert (
+        "ql_top_shapes\n"
+        "| join kind=leftouter ql_top_callers_per_shape on ql_db_name, ql_coll_name, ql_shape_id"
+        in query
+    )
 
 
 def test_build_shapes_query_with_account_filter() -> None:

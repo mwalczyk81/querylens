@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from click.testing import CliRunner
 
 from querylens.cli import cli
@@ -514,3 +515,153 @@ def test_cli_discover_internal_consistency_error_exit_1(mock_get_client: MagicMo
         in normalized
     )
     assert "Traceback" not in result.output
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_discover_console_truncates_query_text_by_default(mock_get_client: MagicMock) -> None:
+    """Verify console table truncates query text to 200 characters by default (FR-012, T033)."""
+    long_query = "SELECT * FROM c WHERE " + " AND ".join([f"c.field_{i} == {i}" for i in range(25)])
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_hash_long",
+            "ql_sample_text": long_query,
+            "ql_execution_count": 10,
+            "ql_total_ru": 100.0,
+            "ql_max_ru": 10.0,
+            "ql_total_returned_rows": 20.0,
+            "ql_throttled_count": 0,
+            "ql_top_callers": [],
+        }
+    ]
+    mock_client = MagicMock()
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([make_sample_shapes_table(shapes=shapes)]),
+        make_logs_query_result([make_sample_totals_table()]),
+    ]
+    mock_get_client.return_value = mock_client
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc"],
+        env={"COLUMNS": "400"},
+    )
+    assert result.exit_code == 0
+    assert "..." in result.output
+    assert "c.field_24" not in result.output
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_discover_console_shows_full_query_text_with_flag(mock_get_client: MagicMock) -> None:
+    """Verify console table preserves full query text when --show-text is specified (T033)."""
+    long_query = "SELECT * FROM c WHERE " + " AND ".join([f"c.field_{i} == {i}" for i in range(25)])
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_hash_long",
+            "ql_sample_text": long_query,
+            "ql_execution_count": 10,
+            "ql_total_ru": 100.0,
+            "ql_max_ru": 10.0,
+            "ql_total_returned_rows": 20.0,
+            "ql_throttled_count": 0,
+            "ql_top_callers": [],
+        }
+    ]
+    mock_client = MagicMock()
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([make_sample_shapes_table(shapes=shapes)]),
+        make_logs_query_result([make_sample_totals_table()]),
+    ]
+    mock_get_client.return_value = mock_client
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc", "--show-text"],
+        env={"COLUMNS": "400"},
+    )
+    assert result.exit_code == 0
+    assert "c.field_24" in result.output
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_discover_never_logs_query_text(
+    mock_get_client: MagicMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Verify query text is never logged to internal application logs (FR-012, T033)."""
+    import logging
+
+    secret_query = "SELECT * FROM c WHERE c.secret_token = 'SUPER_SECRET_PAYLOAD_TOKEN'"
+    shapes = [
+        {
+            "ql_db_name": "ecommerce",
+            "ql_coll_name": "orders",
+            "ql_shape_id": "shape_hash_secret",
+            "ql_sample_text": secret_query,
+            "ql_execution_count": 10,
+            "ql_total_ru": 100.0,
+            "ql_max_ru": 10.0,
+            "ql_total_returned_rows": 20.0,
+            "ql_throttled_count": 0,
+            "ql_top_callers": [],
+        }
+    ]
+    mock_client = MagicMock()
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([make_sample_shapes_table(shapes=shapes)]),
+        make_logs_query_result([make_sample_totals_table()]),
+    ]
+    mock_get_client.return_value = mock_client
+
+    runner = CliRunner()
+    with caplog.at_level(logging.DEBUG):
+        result = runner.invoke(
+            cli,
+            ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc"],
+        )
+    assert result.exit_code == 0
+    assert "SUPER_SECRET_PAYLOAD_TOKEN" not in caplog.text
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_discover_renders_callers_in_console_and_json(mock_get_client: MagicMock) -> None:
+    """Verify discovery renders top callers in console and outputs top_callers in JSON (US3)."""
+    from tests.fixtures.synthetic_logs import make_sample_shapes_table_with_callers
+
+    mock_client = MagicMock()
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([make_sample_shapes_table_with_callers()]),
+        make_logs_query_result([make_sample_totals_table()]),
+        make_logs_query_result([make_sample_shapes_table_with_callers()]),
+        make_logs_query_result([make_sample_totals_table()]),
+    ]
+    mock_get_client.return_value = mock_client
+
+    runner = CliRunner()
+    # 1. Console
+    res_console = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc"],
+        env={"COLUMNS": "400"},
+    )
+    assert res_console.exit_code == 0
+    assert "00000000-0000-0000-0000-000000000001" in res_console.output
+    assert "70.0%" in res_console.output
+    assert "192.168.1.1" in res_console.output
+
+    # 2. JSON
+    res_json = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc", "--json"],
+    )
+    assert res_json.exit_code == 0
+    data = json.loads(res_json.output)
+    assert len(data["results"]) == 1
+    callers = data["results"][0].get("top_callers", [])
+    assert len(callers) == 2
+    assert callers[0]["identifier"] == "00000000-0000-0000-0000-000000000001"
+    assert callers[0]["ru_share_pct"] == 70.0

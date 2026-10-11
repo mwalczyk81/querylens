@@ -516,3 +516,134 @@ def test_run_discovery_empty_container_database_stays_unknown() -> None:
     shape = summary.results[0]
     assert shape.database == "(unknown)"
     assert shape.container == "(unknown)"
+
+
+def test_run_discovery_parses_top_callers_successfully() -> None:
+    """Verify run_discovery parses top_callers bags into CallerAttribution models (US3, T032)."""
+    from tests.fixtures.synthetic_logs import make_sample_shapes_table_with_callers
+
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table_with_callers()
+    totals_table = make_sample_totals_table(
+        window_total_ru=1000.0,
+        attributed_total_ru=500.0,
+        total_executions=100,
+    )
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    summary = run_discovery(options=options, client=mock_client)
+
+    assert len(summary.results) == 1
+    shape = summary.results[0]
+    assert len(shape.top_callers) == 2
+
+    # Principal GUID preferred
+    caller1 = shape.top_callers[0]
+    assert caller1.identifier == "00000000-0000-0000-0000-000000000001"
+    assert caller1.identifier_type == "aad_principal"
+    assert caller1.ru_share_pct == 70.0  # 350 / 500
+
+    # Client IP fallback
+    caller2 = shape.top_callers[1]
+    assert caller2.identifier == "192.168.1.1"
+    assert caller2.identifier_type == "client_ip"
+    assert caller2.ru_share_pct == 30.0  # 150 / 500
+
+
+def test_run_discovery_callers_flattened_list_raises_internal_consistency_error() -> None:
+    """Verify strict parser rejects flattened caller list with InternalConsistencyError (T032)."""
+    from tests.fixtures.synthetic_logs import (
+        make_sample_shapes_table_with_flattened_callers,
+    )
+
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table_with_flattened_callers()
+    totals_table = make_sample_totals_table(window_total_ru=500.0, attributed_total_ru=100.0)
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    with pytest.raises(InternalConsistencyError, match="Unexpected caller item shape"):
+        run_discovery(options=options, client=mock_client)
+
+
+def test_run_discovery_callers_nested_pairs_raises_internal_consistency_error() -> None:
+    """Verify strict parser rejects nested pair callers with InternalConsistencyError (T032)."""
+    from tests.fixtures.synthetic_logs import (
+        make_sample_shapes_table_with_nested_pairs_callers,
+    )
+
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table_with_nested_pairs_callers()
+    totals_table = make_sample_totals_table(window_total_ru=500.0, attributed_total_ru=100.0)
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    with pytest.raises(InternalConsistencyError, match="Unexpected caller item shape"):
+        run_discovery(options=options, client=mock_client)
+
+
+def test_run_discovery_callers_more_than_three_raises_internal_consistency_error() -> None:
+    """Verify strict parser rejects > 3 callers per shape with InternalConsistencyError (T032)."""
+    from tests.fixtures.synthetic_logs import (
+        make_sample_shapes_table_with_too_many_callers,
+    )
+
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table_with_too_many_callers()
+    totals_table = make_sample_totals_table(window_total_ru=500.0, attributed_total_ru=100.0)
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    with pytest.raises(InternalConsistencyError, match="Top callers exceeded maximum of 3"):
+        run_discovery(options=options, client=mock_client)
+
+
+def test_run_discovery_callers_invalid_types_raises_internal_consistency_error() -> None:
+    """Verify strict parser rejects caller dict with wrong value types (T032)."""
+    from tests.fixtures.synthetic_logs import (
+        make_sample_shapes_table_with_invalid_caller_types,
+    )
+
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table_with_invalid_caller_types()
+    totals_table = make_sample_totals_table(window_total_ru=500.0, attributed_total_ru=100.0)
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    with pytest.raises(InternalConsistencyError, match="Caller caller_ru must be non-negative"):
+        run_discovery(options=options, client=mock_client)
+
+
+def test_run_discovery_callers_excess_ru_raises_internal_consistency_error() -> None:
+    """Verify strict parser validates caller RU <= shape total RU (T032)."""
+    from tests.fixtures.synthetic_logs import (
+        make_sample_shapes_table_with_excess_caller_ru,
+    )
+
+    mock_client = MagicMock()
+    shapes_table = make_sample_shapes_table_with_excess_caller_ru()
+    totals_table = make_sample_totals_table(window_total_ru=1000.0, attributed_total_ru=500.0)
+    mock_client.query_workspace.side_effect = [
+        make_logs_query_result([shapes_table]),
+        make_logs_query_result([totals_table]),
+    ]
+
+    options = DiscoveryOptions(workspace_id=UUID("12345678-1234-1234-1234-123456789abc"))
+    with pytest.raises(InternalConsistencyError, match="Caller RU share exceeded 100.0%"):
+        run_discovery(options=options, client=mock_client)
