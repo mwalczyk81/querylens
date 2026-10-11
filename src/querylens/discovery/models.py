@@ -60,14 +60,19 @@ def parse_duration_string(val: str | timedelta) -> timedelta:
             msg = f"Invalid time window '{val}'. Must match format '<number>[m|h|d]' (e.g. '24h')."
             raise DiscoveryValidationError(msg)
         amount, unit = int(match.group(1)), match.group(2)
-        if unit == "m":
-            td = timedelta(minutes=amount)
-        elif unit == "h":
-            td = timedelta(hours=amount)
-        elif unit == "d":
-            td = timedelta(days=amount)
-        else:
-            raise DiscoveryValidationError(f"Unknown time unit '{unit}' in '{val}'.")
+        try:
+            if unit == "m":
+                td = timedelta(minutes=amount)
+            elif unit == "h":
+                td = timedelta(hours=amount)
+            elif unit == "d":
+                td = timedelta(days=amount)
+            else:
+                raise DiscoveryValidationError(f"Unknown time unit '{unit}' in '{val}'.")
+        except OverflowError as err:
+            raise DiscoveryValidationError(
+                f"Time window '{val}' is too large to represent."
+            ) from err
     else:
         raise DiscoveryValidationError(f"Invalid duration type: {type(val)}")
 

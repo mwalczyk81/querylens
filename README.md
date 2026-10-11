@@ -1,6 +1,7 @@
 # QueryLens 🔍
 
 [![CI](https://github.com/mwalczyk81/querylens/actions/workflows/ci.yml/badge.svg)](https://github.com/mwalczyk81/querylens/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/mwalczyk81/querylens/graph/badge.svg)](https://codecov.io/gh/mwalczyk81/querylens)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/mwalczyk81/querylens/badge)](https://securityscorecards.dev/viewer/?repo=github.com/mwalczyk81/querylens)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
@@ -272,6 +273,53 @@ QueryLens is built with security-first invariants:
 1. **Entra ID Passwordless Authentication**: Prioritizes `DefaultAzureCredential`. Master key authentication is strictly restricted to the local Cosmos DB emulator (`localhost` / `127.0.0.1`).
 2. **Least Privilege**: Only requires the Azure Cosmos DB built-in role `Cosmos DB Built-in Data Reader`.
 3. **Payload Discard**: Iterates over query results using `for _ in page: pass`, dropping item bodies immediately. QueryLens extracts only metadata headers (`x-ms-request-charge`, `x-ms-documentdb-query-metrics`, `x-ms-cosmos-index-utilization`).
+
+---
+
+## 🔍 Quality at a Glance
+
+QueryLens is tested and verified across three levels:
+
+- **Unit tests**: Deterministic verification of metrics parsers, domain models, CLI options, KQL query builders, and report formatters.
+- **Property-based tests**: Generative testing with Hypothesis verifying invariant boundaries and monotonic behavior across randomized input spaces.
+- **Integration tests**: End-to-end execution against a real Azure Cosmos DB Linux emulator in containerized CI environments.
+
+Every change triggers automated CI workflows enforcing strict code hygiene (Ruff formatting and linting), strict type checking (Pyrefly), security audits (`pip-audit`, Gitleaks secret detection, CodeQL static analysis), and an automated test coverage gate. Track live workflow runs on [GitHub Actions](https://github.com/mwalczyk81/querylens/actions) and test coverage on [Codecov](https://codecov.io/gh/mwalczyk81/querylens).
+
+### Security Posture
+
+We track repository supply chain security using the [OpenSSF Scorecard](https://securityscorecards.dev/viewer/?repo=github.com/mwalczyk81/querylens). Scorecard evaluates open-source projects against automated security criteria:
+
+- **Strong automated controls**: GitHub Actions pinned to immutable commit SHAs with version comments, minimal `GITHUB_TOKEN` permissions (`contents: read`), CodeQL static analysis (SAST), automated dependency updates via Dependabot, dependency vulnerability scanning with `pip-audit`, secret scanning via Gitleaks, and a published security policy ([SECURITY.md](SECURITY.md)).
+- **Structural characteristics of a young solo project**: Some Scorecard checks are structurally low for early-stage single-maintainer repositories rather than reflecting security gaps. Specifically, **Code-Review** requires pull requests to be approved by a second reviewer, **Contributors** requires maintainers from multiple distinct organizations, and **Maintained** requires commit activity spanning at least 90 days.
+
+---
+
+## 🔐 Verify a Release
+
+Release artifacts (wheels and source distributions) are cryptographically signed using [Sigstore](https://www.sigstore.dev/) and accompanied by build provenance attested by GitHub Actions.
+
+### Verify with Sigstore
+
+You can verify that a downloaded package was built and signed by this repository's release workflow using the official `sigstore` CLI:
+
+```bash
+# Install the sigstore CLI
+pip install sigstore
+
+# Verify wheel signature bundle
+sigstore verify github querylens-0.2.0-py3-none-any.whl \
+  --bundle querylens-0.2.0-py3-none-any.whl.sigstore \
+  --cert-identity-regexp "^https://github.com/mwalczyk81/querylens/.github/workflows/release.yml@"
+```
+
+### Verify with GitHub CLI
+
+You can also verify build provenance attestations directly using the GitHub CLI:
+
+```bash
+gh attestation verify querylens-0.2.0-py3-none-any.whl --repo mwalczyk81/querylens
+```
 
 ---
 
