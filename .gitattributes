@@ -1,2 +1,10 @@
+# Normalize all text files to LF in the repo and on checkout
+* text=auto eol=lf
+
 # Ensure shell scripts always use LF line endings
 *.sh text eol=lf
+*.tape text eol=lf
+
+# Binary assets
+*.gif binary
+*.png binary
