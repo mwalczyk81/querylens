@@ -1,12 +1,12 @@
 # Contributing to QueryLens
 
-Thank you for your interest in contributing to QueryLens! This document provides guidelines and workflows for setting up your local development environment, running tests, proposing architectural changes, and submitting contributions.
+Thank you for your interest in contributing to QueryLens. This document provides guidelines for setting up your local development environment, running tests, proposing architectural changes, and submitting contributions.
 
 ---
 
 ## Development Setup
 
-QueryLens requires **Python 3.12+** and uses [uv](https://docs.astral.sh/uv/) for high-performance dependency management and virtual environments.
+QueryLens requires **Python 3.12+** and uses [uv](https://docs.astral.sh/uv/) to manage dependencies and virtual environments.
 
 ### 1. Clone & Synchronize Dependencies
 
@@ -20,7 +20,7 @@ uv sync --locked
 
 ### 2. Install Pre-Commit Hooks
 
-We enforce strict formatting, linting, and typing on every commit. Install the pre-commit git hooks:
+Formatting, linting, and typing run on every commit. Install the pre-commit git hooks:
 
 ```bash
 uv run pre-commit install
@@ -48,14 +48,13 @@ uv run pytest --cov=querylens --cov-fail-under=85 -m "not integration"
 
 ### Code Coverage & Codecov
 
-QueryLens enforces a strict minimum 85% test coverage gate in CI (`pytest --cov=querylens --cov-fail-under=85 -m "not integration"`). In addition, coverage reports (`coverage.xml`) are uploaded to [Codecov](https://codecov.io/gh/mwalczyk81/querylens) via the `codecov/codecov-action` step.
+CI enforces a minimum 85% test coverage gate (`pytest --cov=querylens --cov-fail-under=85 -m "not integration"`). Coverage reports (`coverage.xml`) upload to [Codecov](https://codecov.io/gh/mwalczyk81/querylens) via the `codecov/codecov-action` step.
 
-- **`CODECOV_TOKEN` Secret**: Required to authenticate uploads with Codecov. The workflow references `${{ secrets.CODECOV_TOKEN }}`.
-- **Behavior If Missing**: The step is configured with `fail_ci_if_error: false`. If the secret is omitted or running in an external fork without repository secrets, the upload step fails gracefully without failing the CI job. The authoritative local coverage gate in `pytest` remains enforced. Furthermore, `codecov.yml` sets both project and patch coverage status checks to `informational: true`, ensuring missing Codecov statuses will not block pull request merges.
+The workflow references `${{ secrets.CODECOV_TOKEN }}` to authenticate uploads with Codecov. The upload step sets `fail_ci_if_error: false`. If the secret is missing or the job runs in an external fork, the upload fails without failing the CI job. The local coverage gate in `pytest` remains authoritative. In addition, `codecov.yml` sets project and patch coverage checks to `informational: true`, so missing Codecov statuses do not block pull request merges.
 
 ### Type Checking
 
-Type checking is performed using [Pyrefly](https://github.com/facebook/pyrefly) in strict mode:
+Run type checking with [Pyrefly](https://github.com/facebook/pyrefly):
 
 ```bash
 uv run pyrefly check
@@ -63,7 +62,7 @@ uv run pyrefly check
 
 ### Offline Discovery Testing
 
-All Log Analytics discovery tests (KQL query construction, parameter validation, caller attribution, service orchestration, and output formatting) run 100% offline without Azure network calls or credentials using synthetic fixtures:
+Log Analytics discovery tests (KQL query construction, parameter validation, caller attribution, service orchestration, and output formatting) run offline without Azure network calls or credentials using synthetic fixtures:
 
 ```bash
 uv run pytest tests/unit/test_discover_* tests/integration/test_discover_snapshots.py
@@ -71,14 +70,15 @@ uv run pytest tests/unit/test_discover_* tests/integration/test_discover_snapsho
 
 ### Live-Gate Policy & Synthetic Regression Fixtures
 
-In accordance with Constitution Principle I (Read-Only Safety) and Principle III (Offline CI Verification), KQL queries are never executed against live Azure infrastructure in automated CI pipelines. Instead, releases and discovery features are gated on the live workspace qualification procedure in `docs/manual-testing.md` and `docs/live-gate.md`.
+KQL queries are never executed against live Azure infrastructure in automated CI pipelines. Instead, releases and discovery features gate on the live workspace qualification procedure in `docs/manual-testing.md` and `docs/live-gate.md`.
 
-- **Golden KQL Snapshot Diff Means Re-Gate**: Any code change that alters generated KQL queries (producing a diff in `tests/unit/__snapshots__/test_discover_kql_snapshots.ambr`) invalidates prior live qualification and **strictly requires re-executing the live workspace gate** against a real workspace before merging or releasing.
-- **Synthetic Regression Fixture Policy**: Every discrepancy, edge case, or unexpected server serialization encountered during live-gate qualification must produce a regression fixture in `tests/fixtures/synthetic_logs.py` mirroring the **real server result shape**, populated with synthetic values only. Live findings are permanently codified into offline regression tests.
+Any code change that alters generated KQL queries (producing a diff in `tests/unit/__snapshots__/test_discover_kql_snapshots.ambr`) invalidates prior live qualification and requires re-executing the live workspace gate against a real workspace before merging or releasing.
+
+Every discrepancy, edge case, or unexpected server serialization encountered during live-gate qualification must produce a regression fixture in `tests/fixtures/synthetic_logs.py` mirroring the server result shape with synthetic values only. Live findings are codified into offline regression tests.
 
 ### Regenerating README Assets
 
-The terminal SVG demo in the README (`docs/assets/querylens-demo.svg`) is generated from deterministic sample run metrics (`docs/assets/sample-run.json`).
+The terminal SVG demo in the README (`docs/assets/querylens-demo.svg`) is generated from sample run metrics (`docs/assets/sample-run.json`).
 
 To regenerate the SVG from existing sample data:
 
@@ -96,17 +96,19 @@ When refreshing sample run metrics, ensure the single-query `--json` excerpt in 
 
 ### Continuous Fuzzing (ClusterFuzzLite & Atheris)
 
-To detect parser crashes, unhandled exceptions, and invariant regressions, QueryLens integrates continuous fuzzing powered by [ClusterFuzzLite](https://google.github.io/clusterfuzzlite/) and [Atheris](https://github.com/google/atheris) (Google's coverage-guided Python fuzzer built on libFuzzer).
+To detect parser crashes, unhandled exceptions, and regressions, QueryLens integrates continuous fuzzing using [ClusterFuzzLite](https://google.github.io/clusterfuzzlite/) and [Atheris](https://github.com/google/atheris).
 
-- **Fuzz Targets (`.clusterfuzzlite/`)**:
-  - `fuzz_query_metrics.py`: Fuzzes `parse_query_metrics_header` with arbitrary unicode strings to ensure robust semicolon-delimited header parsing.
-  - `fuzz_index_utilization.py`: Fuzzes `parse_index_utilization_header` with arbitrary strings to verify safe Base64 decoding and JSON handling.
-  - `fuzz_kql_escaping.py`: Fuzzes `escape_kql_string` to assert KQL injection invariants (null stripping, quote/control character escaping).
-  - `fuzz_duration_parser.py`: Fuzzes `parse_duration_string` to assert bounds checks and clean `DiscoveryValidationError` handling.
-  - `fuzz_discovery_options.py`: Fuzzes `DiscoveryOptions` Pydantic validators with fuzzed provider streams.
-- **Seed Corpora**: Valid seed inputs are packaged in `.clusterfuzzlite/*_seed_corpus.zip` to accelerate coverage exploration.
-- **CI Fuzzing Workflow (`.github/workflows/cflite_pr.yml`)**: Runs on pull requests targeting `main` in `code-change` mode with a fast 30-second time budget.
-- **Environment Isolation & Atheris Pinning**: Atheris is a Linux-native engine requiring C runtime instrumentation linked against Clang's libFuzzer. It is deliberately **not** included in `pyproject.toml` or developer virtual environments to ensure Windows and macOS developers can install and run tests without C toolchain friction. Atheris is present only in the base builder image (`gcr.io/oss-fuzz-base/base-builder-python`), which is pinned by immutable SHA256 digest in `.clusterfuzzlite/Dockerfile`.
+Fuzz targets live in `.clusterfuzzlite/`:
+
+- `fuzz_query_metrics.py`: tests `parse_query_metrics_header` with arbitrary unicode strings for semicolon-delimited header parsing.
+- `fuzz_index_utilization.py`: tests `parse_index_utilization_header` with arbitrary strings for Base64 decoding and JSON handling.
+- `fuzz_kql_escaping.py`: tests `escape_kql_string` for KQL injection invariants (null stripping, quote/control character escaping).
+- `fuzz_duration_parser.py`: tests `parse_duration_string` for bounds checks and clean `DiscoveryValidationError` handling.
+- `fuzz_discovery_options.py`: tests `DiscoveryOptions` Pydantic validators.
+
+Seed inputs live in `.clusterfuzzlite/*_seed_corpus.zip` to accelerate coverage exploration. The CI fuzzing workflow (`.github/workflows/cflite_pr.yml`) runs on pull requests targeting `main` in `code-change` mode with a 30-second time budget.
+
+Atheris requires C runtime instrumentation linked against Clang's libFuzzer. It is omitted from `pyproject.toml` and developer virtual environments so Windows and macOS developers can install dependencies without C toolchain requirements. Atheris is installed only inside the base builder image (`gcr.io/oss-fuzz-base/base-builder-python`), which is pinned by SHA256 digest in `.clusterfuzzlite/Dockerfile`.
 
 #### Pinned Build Inputs & Refreshing Pins
 
@@ -161,7 +163,7 @@ To run the full integration suite or profile sample workloads locally, spin up t
 docker compose up -d
 ```
 
-Wait until the emulator endpoint becomes healthy (approximately 60–90 seconds):
+Wait until the emulator endpoint becomes healthy (approximately 60-90 seconds):
 
 ```bash
 curl -k -f https://localhost:8081/_explorer/emulator.pem
@@ -169,7 +171,7 @@ curl -k -f https://localhost:8081/_explorer/emulator.pem
 
 ### 2. Seed Test Data
 
-Run the deterministic seeding script to populate test containers across partitioned and unindexed schemas:
+Run the seeding script to populate test containers across partitioned and unindexed schemas:
 
 ```bash
 uv run python scripts/seed_emulator.py
@@ -214,13 +216,13 @@ Please create or update the corresponding ADR using the numbered MADR format (`Y
 
 ## CI/CD Security & Action Pinning Policy
 
-In accordance with OpenSSF Scorecard supply chain security recommendations:
+In accordance with OpenSSF Scorecard recommendations:
 
-- **Immutable Commit SHA Pinning**: All third-party GitHub Actions across all workflow files (`ci.yml`, `release.yml`, `scorecard.yml`, `dependency-review.yml`, `cflite_pr.yml`) must be pinned to full 40-character commit SHAs, accompanied by an inline comment indicating the human-readable tag/version (e.g. `uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1`).
-- **Exceptions**: Reusable workflows called via `workflow_call` cannot always be pinned by commit SHA if GitHub requires a ref/tag, or certain composite actions with external dependencies. Any such exception must be explicitly justified and documented in an inline workflow comment. Currently, QueryLens maintains zero action-pinning exceptions; all actions are strictly pinned by commit SHA.
+- All third-party GitHub Actions across workflow files (`ci.yml`, `release.yml`, `scorecard.yml`, `dependency-review.yml`, `cflite_pr.yml`) must be pinned to 40-character commit SHAs, accompanied by an inline comment showing the tag or version (for example `uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1`).
+- Reusable workflows called via `workflow_call` cannot always be pinned by commit SHA if GitHub requires a tag, and some composite actions require external dependencies. Any exception must be documented in an inline workflow comment. QueryLens currently has no action-pinning exceptions; all actions are pinned by commit SHA.
 
 ---
 
 ## Spec-Driven Development Workflow
 
-QueryLens was developed using the [Spec-Kit](https://github.com/mwalczyk/spec-kit) methodology, which emphasizes formal requirements specification, architectural design artifacts, and executable contracts prior to code generation. Feature definitions, research findings, data models, and test matrices are maintained under `specs/` (such as `specs/001-cosmos-query-cost/`). Contributors working on new features or major enhancements are encouraged to structure their proposals by drafting specification and task artifacts before implementation to ensure traceability and architectural alignment.
+QueryLens was developed using the [Spec-Kit](https://github.com/mwalczyk/spec-kit) methodology, creating requirements specifications, design artifacts, and contracts before writing code. Feature definitions, research findings, data models, and test matrices live under `specs/` (such as `specs/001-cosmos-query-cost/`). When proposing new features or major changes, draft specification and task artifacts before implementation.

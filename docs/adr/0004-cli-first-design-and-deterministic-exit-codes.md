@@ -28,12 +28,12 @@ A command-line tool deployed into automated pipelines must clearly communicate e
 Chosen option: "Option 1", because:
 
 1. **Deterministic Exit Codes**:
-   * `0`: Success — all queries executed successfully; findings (if any) are below the `--fail-on` threshold.
-   * `1`: Validation / Usage / Query Execution Error — invalid workload YAML, partition key format violation (length not 1..3, nulls, nested lists), missing required options, or one or more queries encountered an execution error (e.g. HTTP 400 syntax error).
-   * `2`: Cumulative RU Budget Exceeded — query execution aborted early due to breaching `--budget-ru`; partial results returned.
-   * `3`: Connection Error — network unreachable, DNS resolution error, Cosmos database or container not found (HTTP 404).
-   * `4`: Diagnostic Threshold Breached — at least one diagnostic finding met or exceeded the `--fail-on` severity (`critical`, `high`, `medium`).
-   * `5`: Authentication / Authorization Failure — invalid credentials, missing "Cosmos DB Built-in Data Reader" role, HTTP 401/403.
+   * `0`: Success: all queries executed successfully; findings (if any) are below the `--fail-on` threshold.
+   * `1`: Validation / Usage / Query Execution Error: invalid workload YAML, partition key format violation (length not 1..3, nulls, nested lists), missing required options, or one or more queries encountered an execution error (e.g. HTTP 400 syntax error).
+   * `2`: Cumulative RU Budget Exceeded: query execution aborted early due to breaching `--budget-ru`; partial results returned.
+   * `3`: Connection Error: network unreachable, DNS resolution error, Cosmos database or container not found (HTTP 404).
+   * `4`: Diagnostic Threshold Breached: at least one diagnostic finding met or exceeded the `--fail-on` severity (`critical`, `high`, `medium`).
+   * `5`: Authentication / Authorization Failure: invalid credentials, missing "Cosmos DB Built-in Data Reader" role, HTTP 401/403.
 2. **Exit Code Precedence Hierarchy**:
    * Fatal transport errors (`3` for connection/not-found, `5` for auth failure) terminate immediately.
    * For completed or budget-halted workload runs, exit codes are evaluated with strict precedence:

@@ -58,7 +58,7 @@ Unlike `querylens run`, `querylens discover` queries Azure Monitor management te
 
 ## Exit-Code Decision Hierarchy
 
-QueryLens enforces a deterministic exit-code precedence hierarchy for reliable orchestration in CI/CD pipelines. Fatal environment and authentication failures abort immediately, while completed runs render their full reports before evaluating exit criteria:
+QueryLens uses an exit-code precedence hierarchy for CI/CD pipelines. Fatal environment and authentication failures abort immediately, while completed runs render their full reports before evaluating exit criteria:
 
 ```mermaid
 flowchart TD
@@ -90,12 +90,12 @@ flowchart TD
 
 ## Design Decisions
 
-Key architectural choices are formally documented in our Architectural Decision Records:
+Architectural choices are documented in our Architectural Decision Records:
 
-- [ADR 0001](adr/0001-minimal-databaseadapter-protocol.md): Minimal `DatabaseAdapter` Protocol (`collect(workload) -> Iterator[QueryCost]`) and unified domain model, keeping diagnostic rules pure and decoupled from SDK specifics.
-- [ADR 0002](adr/0002-read-only-safety-and-payload-privacy.md): Read-only safety guarantees, immediate streaming payload discard (`for _ in page: pass`) with zero disk or cache persistence, and per-page RU budget circuit breakers.
-- [ADR 0003](adr/0003-test-first-property-testing-and-docker-emulator.md): TDD testing strategy combining Hypothesis property-based fuzzing, Syrupy snapshot assertions, and automated Docker Linux Cosmos DB emulator integration.
-- [ADR 0004](adr/0004-cli-first-design-and-deterministic-exit-codes.md): CLI-first ergonomics and strict deterministic exit code hierarchy (`0`, `1`, `2`, `3`, `4`, `5`) for pipeline orchestration.
+- [ADR 0001](adr/0001-minimal-databaseadapter-protocol.md): `DatabaseAdapter` Protocol (`collect(workload) -> Iterator[QueryCost]`) and unified domain model, keeping diagnostic rules decoupled from SDK specifics.
+- [ADR 0002](adr/0002-read-only-safety-and-payload-privacy.md): Read-only queries, streaming payload discard (`for _ in page: pass`) with no disk or cache persistence, and per-page RU budget circuit breakers.
+- [ADR 0003](adr/0003-test-first-property-testing-and-docker-emulator.md): Testing strategy combining Hypothesis property-based tests, Syrupy snapshot assertions, and Docker Linux Cosmos DB emulator integration.
+- [ADR 0004](adr/0004-cli-first-design-and-deterministic-exit-codes.md): CLI ergonomics and exit code hierarchy (`0`, `1`, `2`, `3`, `4`, `5`) for pipeline orchestration.
 - [ADR 0005](adr/0005-azure-cosmos-sdk-contracts-and-metrics-extraction.md): Azure Cosmos SDK metrics extraction via `response_hook`, header parsing, and distinct physical partition key range IDs for cross-partition detection.
-- [ADR 0006](adr/0006-azure-monitor-logs-query-contracts.md): Azure Monitor Logs query contracts, two-query server-side KQL aggregation, container-scoped database resolution, top-3 caller ranking, property bag packaging, and strict dynamic deserialization.
-- [ADR 0007](adr/0007-kql-injection-defense-and-input-validation.md): KQL injection defense, strict regex parameter boundary validation, and sanitization invariants for offline and online query construction.
+- [ADR 0006](adr/0006-azure-monitor-logs-query-contracts.md): Azure Monitor Logs query contracts, two-query server-side KQL aggregation, container-scoped database resolution, top-3 caller ranking, property bag packaging, and dynamic deserialization.
+- [ADR 0007](adr/0007-kql-injection-defense-and-input-validation.md): KQL injection defense, parameter validation, and sanitization invariants for offline and online query construction.
