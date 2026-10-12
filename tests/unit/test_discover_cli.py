@@ -5,6 +5,11 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from azure.core.exceptions import (
+    ClientAuthenticationError,
+    HttpResponseError,
+    ServiceRequestError,
+)
 from click.testing import CliRunner
 
 from querylens.cli import cli
@@ -758,3 +763,151 @@ def test_cli_discover_and_check_render_exact_absolute_window() -> None:
         parsed_check = json.loads(res_check_json.output)
         assert parsed_check["window_start"] == "2026-10-10T15:00:00+00:00"
         assert parsed_check["window_end"] == "2026-10-11T15:00:00+00:00"
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_discover_client_init_auth_error_exits_5_without_traceback(
+    mock_get_client: MagicMock,
+) -> None:
+    """Verify discovery exits 5 with clean message and no traceback on client auth error."""
+    mock_get_client.side_effect = ClientAuthenticationError("Credential acquisition failed")
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc"],
+    )
+    assert result.exit_code == 5
+    assert "Authentication Error:" in result.output
+    assert "Credential acquisition failed" in result.output
+    assert "Traceback" not in result.output
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_discover_client_init_http_403_exits_5_without_traceback(
+    mock_get_client: MagicMock,
+) -> None:
+    """Verify discovery exits 5 with clean message and no traceback on client HTTP 403."""
+    mock_resp = MagicMock(status_code=403, reason="Forbidden")
+    mock_get_client.side_effect = HttpResponseError(
+        message="Forbidden: Principal lacks Log Analytics Reader",
+        response=mock_resp,
+    )
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc"],
+    )
+    assert result.exit_code == 5
+    assert "Authorization Error:" in result.output
+    assert "Forbidden: Principal lacks Log Analytics Reader" in result.output
+    assert "Traceback" not in result.output
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_discover_client_init_http_404_exits_3_without_traceback(
+    mock_get_client: MagicMock,
+) -> None:
+    """Verify discovery exits 3 with clean message and no traceback on client HTTP 404."""
+    mock_resp = MagicMock(status_code=404, reason="Not Found")
+    mock_get_client.side_effect = HttpResponseError(
+        message="Workspace not found",
+        response=mock_resp,
+    )
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc"],
+    )
+    assert result.exit_code == 3
+    assert "Workspace Not Found:" in result.output
+    assert "Traceback" not in result.output
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_discover_client_init_service_request_error_exits_3_without_traceback(
+    mock_get_client: MagicMock,
+) -> None:
+    """Verify discovery exits 3 with clean message and no traceback on client connection error."""
+    mock_get_client.side_effect = ServiceRequestError("Network connection reset by peer")
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc"],
+    )
+    assert result.exit_code == 3
+    assert "Connection Error:" in result.output
+    assert "Traceback" not in result.output
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_check_client_init_auth_error_exits_5_without_traceback(
+    mock_get_client: MagicMock,
+) -> None:
+    """Verify check mode exits 5 with clean message and no traceback on client auth error."""
+    mock_get_client.side_effect = ClientAuthenticationError("Credential acquisition failed")
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc", "--check"],
+    )
+    assert result.exit_code == 5
+    assert "Authentication Error:" in result.output
+    assert "Credential acquisition failed" in result.output
+    assert "Traceback" not in result.output
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_check_client_init_http_403_exits_5_without_traceback(
+    mock_get_client: MagicMock,
+) -> None:
+    """Verify check mode exits 5 with clean message and no traceback on client HTTP 403."""
+    mock_resp = MagicMock(status_code=403, reason="Forbidden")
+    mock_get_client.side_effect = HttpResponseError(
+        message="Forbidden: Principal lacks Log Analytics Reader",
+        response=mock_resp,
+    )
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc", "--check"],
+    )
+    assert result.exit_code == 5
+    assert "Authorization Error:" in result.output
+    assert "Forbidden: Principal lacks Log Analytics Reader" in result.output
+    assert "Traceback" not in result.output
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_check_client_init_http_404_exits_3_without_traceback(
+    mock_get_client: MagicMock,
+) -> None:
+    """Verify check mode exits 3 with clean message and no traceback on client HTTP 404."""
+    mock_resp = MagicMock(status_code=404, reason="Not Found")
+    mock_get_client.side_effect = HttpResponseError(
+        message="Workspace not found",
+        response=mock_resp,
+    )
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc", "--check"],
+    )
+    assert result.exit_code == 3
+    assert "Workspace Not Found:" in result.output
+    assert "Traceback" not in result.output
+
+
+@patch("querylens.discover_cli.get_logs_client")
+def test_cli_check_client_init_service_request_error_exits_3_without_traceback(
+    mock_get_client: MagicMock,
+) -> None:
+    """Verify check mode exits 3 with clean message and no traceback on client connection error."""
+    mock_get_client.side_effect = ServiceRequestError("Network connection reset by peer")
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["discover", "--workspace-id", "12345678-1234-1234-1234-123456789abc", "--check"],
+    )
+    assert result.exit_code == 3
+    assert "Connection Error:" in result.output
+    assert "Traceback" not in result.output

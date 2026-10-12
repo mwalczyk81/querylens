@@ -14,14 +14,14 @@ Cosmos DB queries are executed via [`ContainerProxy.query_items()`](https://lear
 
 Verified parameter signatures against `azure-cosmos` 4.7.0+:
 
-* `query: str` — SQL query string (e.g. `"SELECT * FROM c WHERE c.category = @cat"`).
-* `parameters: list[dict[str, Any]] | None` — Parameter bindings in format `[{"name": "@cat", "value": "electronics"}]`.
-* `partition_key: Any | None` — Explicit partition key value when scoping query to a single logical partition.
-* `enable_cross_partition_query: bool | None` — Explicitly enabled (`True`) to allow multi-partition queries when `partition_key` is not provided.
-* `populate_query_metrics: bool | None` — Must be `True` to trigger emission of `x-ms-documentdb-query-metrics` header.
-* `populate_index_metrics: bool | None` — Must be `True` to trigger emission of `x-ms-cosmos-index-utilization` header.
-* `max_item_count: int | None` — Page size limit per network roundtrip (used as a safety constraint).
-* `response_hook: Callable[[dict[str, str], Any], None] | None` — Callback receiving raw response headers for each HTTP page response.
+* `query: str`: SQL query string (e.g. `"SELECT * FROM c WHERE c.category = @cat"`).
+* `parameters: list[dict[str, Any]] | None`: Parameter bindings in format `[{"name": "@cat", "value": "electronics"}]`.
+* `partition_key: Any | None`: Explicit partition key value when scoping query to a single logical partition.
+* `enable_cross_partition_query: bool | None`: Explicitly enabled (`True`) to allow multi-partition queries when `partition_key` is not provided.
+* `populate_query_metrics: bool | None`: Must be `True` to trigger emission of `x-ms-documentdb-query-metrics` header.
+* `populate_index_metrics: bool | None`: Must be `True` to trigger emission of `x-ms-cosmos-index-utilization` header.
+* `max_item_count: int | None`: Page size limit per network roundtrip (used as a safety constraint).
+* `response_hook: Callable[[dict[str, str], Any], None] | None`: Callback receiving raw response headers for each HTTP page response.
 
 ### Response Headers & Metrics Extraction
 

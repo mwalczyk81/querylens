@@ -164,3 +164,51 @@ class TestCosmosParsing:
         msg, act_id = extract_error_details(exc)
         assert msg == "HTTP 400: Query syntax error"
         assert act_id == "abc-123"
+
+    def test_extract_error_details_rbac_errors_string_array(self) -> None:
+        """Extract concise message from realistic Cosmos RBAC 403 Errors string array."""
+        raw_msg = (
+            '(Forbidden) Message: {"Errors":["The requested operation cannot be performed '
+            "because the principal does not have the required data plane action "
+            "'Microsoft.DocumentDB/databaseAccounts/readMetadata'.\"]}\r\n"
+            "ActivityId: 6f846d0c-60db-4fc4-ba65-c33503aa2b1d, Request URI: rntbd://...\r\n"
+            "Microsoft.Azure.Cosmos.Direct/2.14.0"
+        )
+        exc = CosmosHttpResponseError(status_code=403, message=raw_msg)
+        msg, act_id = extract_error_details(exc)
+        expected = (
+            "HTTP 403: The requested operation cannot be performed because the principal "
+            "does not have the required data plane action "
+            "'Microsoft.DocumentDB/databaseAccounts/readMetadata'."
+        )
+        assert msg == expected
+        assert act_id == "6f846d0c-60db-4fc4-ba65-c33503aa2b1d"
+
+    def test_extract_error_details_empty_or_non_string_errors_falls_back(self) -> None:
+        """Fallback to raw message cleanup when errors array is empty or non-dict/non-string."""
+        raw_msg_empty = (
+            '(BadRequest) Message: {"errors":[]}\r\n'
+            "ActivityId: 64b85590-b146-444e-a10c-ca14923eef12"
+        )
+        exc_empty = CosmosHttpResponseError(status_code=400, message=raw_msg_empty)
+        msg, act_id = extract_error_details(exc_empty)
+        assert "HTTP 400" in msg
+        assert act_id == "64b85590-b146-444e-a10c-ca14923eef12"
+
+        raw_msg_num = (
+            '(BadRequest) Message: {"errors":[12345]}\r\n'
+            "ActivityId: 64b85590-b146-444e-a10c-ca14923eef13"
+        )
+        exc_num = CosmosHttpResponseError(status_code=400, message=raw_msg_num)
+        msg, act_id = extract_error_details(exc_num)
+        assert "HTTP 400" in msg
+        assert act_id == "64b85590-b146-444e-a10c-ca14923eef13"
+
+        raw_msg_nodict = (
+            '(BadRequest) Message: {"errors":[{"other":"value"}]}\r\n'
+            "ActivityId: 64b85590-b146-444e-a10c-ca14923eef14"
+        )
+        exc_nodict = CosmosHttpResponseError(status_code=400, message=raw_msg_nodict)
+        msg, act_id = extract_error_details(exc_nodict)
+        assert "HTTP 400" in msg
+        assert act_id == "64b85590-b146-444e-a10c-ca14923eef14"

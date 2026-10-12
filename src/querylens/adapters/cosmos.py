@@ -124,13 +124,17 @@ def extract_error_details(exc: CosmosHttpResponseError) -> tuple[str, str | None
 
     msg_text = None
     # Look for nested JSON errors array from Cosmos DB Gateway
-    match_json = re.search(r'\{[^{}]*"errors"\s*:\s*\[.*?\][^{}]*\}', raw_str, re.DOTALL)
+    match_json = re.search(r'\{[^{}]*"(?:errors|Errors)"\s*:\s*\[.*?\][^{}]*\}', raw_str, re.DOTALL)
     if match_json:
         with contextlib.suppress(json.JSONDecodeError, KeyError, IndexError, TypeError):
             parsed_json = json.loads(match_json.group(0))
-            errors_list = parsed_json.get("errors", [])
-            if errors_list and isinstance(errors_list[0], dict) and "message" in errors_list[0]:
-                msg_text = str(errors_list[0]["message"]).strip()
+            errors_list = parsed_json.get("errors") or parsed_json.get("Errors", [])
+            if errors_list:
+                first_err = errors_list[0]
+                if isinstance(first_err, dict) and "message" in first_err:
+                    msg_text = str(first_err["message"]).strip()
+                elif isinstance(first_err, str):
+                    msg_text = first_err.strip()
 
     if not msg_text:
         # Fallback: clean raw message
@@ -238,6 +242,11 @@ class CosmosAdapter:
 
         Raises:
             ValueError: If key auth is attempted against a remote non-local endpoint.
+            ClientAuthenticationError: If Entra ID credential acquisition fails.
+            CosmosHttpResponseError: If Cosmos DB rejects connection or authorization
+                (e.g. 401/403/404).
+            ServiceRequestError: If network connection to Cosmos DB endpoint fails.
+            CosmosClientTimeoutError: If connection to Cosmos DB endpoint times out.
         """
         self.settings = settings
         endpoint = settings.endpoint
