@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import pytest
 from azure.core.exceptions import ClientAuthenticationError, ServiceRequestError
 from azure.cosmos.exceptions import (
     CosmosClientTimeoutError,
@@ -20,7 +21,7 @@ from azure.cosmos.exceptions import (
 from click.testing import CliRunner
 
 from querylens.adapters.cosmos import BudgetExceededError
-from querylens.cli import cli, map_adapter_exception
+from querylens.cli import cli, handle_adapter_exception, map_adapter_exception
 from querylens.model import QueryCost
 
 
@@ -1039,3 +1040,57 @@ queries:
         msg, code = map_adapter_exception(CosmosClientTimeoutError("Timed out"))
         assert code == 3
         assert msg == "Connection error: Timed out"
+
+        # 9. Generic HTTP status code (e.g. 400) -> 3
+        exc_400 = CosmosHttpResponseError(status_code=400, message="Bad Request")
+        msg, code = map_adapter_exception(exc_400)
+        assert code == 3
+        assert msg == "Cosmos HTTP error (status 400): Bad Request"
+
+        # 10. Generic Exception (e.g. RuntimeError) -> 3
+        exc_other = RuntimeError("Unexpected operational failure")
+        msg, code = map_adapter_exception(exc_other)
+        assert code == 3
+        assert msg == "Error: Unexpected operational failure"
+
+    def test_handle_adapter_exception_before_exit_behavior(self) -> None:
+        """Assert handle_adapter_exception calls before_exit for exit code 3 and skips for 5."""
+        called = False
+
+        def callback() -> None:
+            nonlocal called
+            called = True
+
+        # Exit code 5 (ClientAuthenticationError): callback must NOT be invoked
+        with pytest.raises(SystemExit) as exc_info:
+            handle_adapter_exception(ClientAuthenticationError("Auth failed"), before_exit=callback)
+        assert exc_info.value.code == 5
+        assert called is False
+
+        # Exit code 3 (ServiceRequestError): callback MUST be invoked
+        with pytest.raises(SystemExit) as exc_info:
+            handle_adapter_exception(
+                ServiceRequestError("Connection dropped"), before_exit=callback
+            )
+        assert exc_info.value.code == 3
+        assert called is True
+
+    @patch("querylens.cli.get_adapter")
+    def test_init_adapter_error_value_error_exits_1(
+        self, mock_get_adapter: MagicMock, tmp_path: Path
+    ) -> None:
+        """Exit code 1 when adapter initialization raises ValueError."""
+        workload_yaml = tmp_path / "valid.yaml"
+        workload_yaml.write_text(self.VALID_WORKLOAD_YAML, encoding="utf-8")
+        mock_get_adapter.side_effect = ValueError("Invalid master key on remote endpoint")
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["run", str(workload_yaml), "--endpoint", "https://localhost:8081/"],
+        )
+        assert result.exit_code == 1
+        assert (
+            "Error: Adapter initialization failed: Invalid master key on remote endpoint"
+            in result.output
+        )
