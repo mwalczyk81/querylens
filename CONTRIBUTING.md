@@ -94,6 +94,16 @@ uv run python scripts/gen_readme_assets.py --refresh
 
 When refreshing sample run metrics, ensure the single-query `--json` excerpt in `README.md` is updated to match. A drift test in `tests/unit/test_readme_assets.py` runs in CI to verify byte-for-byte equality for the SVG and consistency of the README JSON excerpt against `sample-run.json`.
 
+### Regenerating the Demo
+
+The terminal GIF in the README Quickstart (`docs/assets/demo.gif`) is recorded from `docs/demo.tape`. Before recording, have the Cosmos DB emulator running and seeded (see [Local Cosmos DB Emulator Quickstart](#local-cosmos-db-emulator-quickstart)) The tape sets the two environment variables it needs, `QUERYLENS_ENDPOINT` and `QUERYLENS_COSMOS_KEY`, to the emulator's public defaults; edit the `Env` lines if your emulator differs. Then run:
+
+```bash
+vhs docs/demo.tape
+```
+
+This requires [vhs](https://github.com/charmbracelet/vhs), `ttyd` and `ffmpeg` on your `PATH`. Regeneration is not part of CI because it needs the emulator.
+
 ### Continuous Fuzzing (ClusterFuzzLite & Atheris)
 
 To detect parser crashes, unhandled exceptions, and regressions, QueryLens integrates continuous fuzzing using [ClusterFuzzLite](https://google.github.io/clusterfuzzlite/) and [Atheris](https://github.com/google/atheris).

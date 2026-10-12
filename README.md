@@ -104,6 +104,10 @@ $env:QUERYLENS_COSMOS_KEY = "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVT
 uv run querylens run examples/workload.yaml
 ```
 
+![Terminal recording of querylens run profiling a workload, then the same run stopped early by a --ru-budget of 30](docs/assets/demo.gif)
+
+A workload run, then the same run stopped by a Request Unit budget.
+
 > [!NOTE]
 > **Emulator Key & TLS Verification**: The key shown above is Microsoft's public well-known Cosmos DB emulator key, not a secret. TLS verification is disabled for the local emulator only (the CLI prints a one-line notice: `TLS verification disabled for local emulator`). Remote Azure endpoints require TLS validation and authenticate via passwordless Entra ID (`DefaultAzureCredential`).
 >
