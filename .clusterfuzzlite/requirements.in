@@ -1,14 +1,14 @@
 # QueryLens runtime dependencies for ClusterFuzzLite
 azure-cosmos>=4.7.0
-azure-identity>=1.16.0
+azure-identity>=1.27.0
 azure-monitor-query==2.0.0
 click>=8.1.7
 pydantic>=2.7.0
-pydantic-settings>=2.2.0
+pydantic-settings>=2.16.2
 pyyaml>=6.0.1
 rich>=13.7.0
 structlog>=24.1.0
 tenacity>=8.3.0
 
 # Build backend for PEP 517 non-isolated build in container
-hatchling>=1.32.4
+hatchling>=1.33.0
