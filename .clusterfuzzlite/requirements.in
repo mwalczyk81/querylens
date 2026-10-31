@@ -11,4 +11,4 @@ structlog>=24.1.0
 tenacity>=8.3.0
 
 # Build backend for PEP 517 non-isolated build in container
-hatchling>=1.32.4
+hatchling>=1.33.0
