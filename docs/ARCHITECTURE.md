@@ -99,3 +99,4 @@ Architectural choices are documented in our Architectural Decision Records:
 - [ADR 0005](adr/0005-azure-cosmos-sdk-contracts-and-metrics-extraction.md): Azure Cosmos SDK metrics extraction via `response_hook`, header parsing, and distinct physical partition key range IDs for cross-partition detection.
 - [ADR 0006](adr/0006-azure-monitor-logs-query-contracts.md): Azure Monitor Logs query contracts, two-query server-side KQL aggregation, container-scoped database resolution, top-3 caller ranking, property bag packaging, and dynamic deserialization.
 - [ADR 0007](adr/0007-kql-injection-defense-and-input-validation.md): KQL injection defense, parameter validation, and sanitization invariants for offline and online query construction.
+- [ADR 0008](adr/0008-architecture-boundaries-enforced-with-import-linter.md): Module boundaries (layering, discovery decoupling, Azure-free domain code) enforced with import-linter.
