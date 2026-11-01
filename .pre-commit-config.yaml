@@ -1,3 +1,5 @@
+default_language_version:
+  node: 24.22.2
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.3
@@ -22,6 +24,12 @@ repos:
       - id: pyrefly
         name: pyrefly
         entry: uv run pyrefly check
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: import-linter
+        name: import-linter
+        entry: uv run lint-imports
         language: system
         types: [python]
         pass_filenames: false

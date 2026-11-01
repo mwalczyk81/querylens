@@ -39,6 +39,7 @@ Issues = "https://github.com/mwalczyk81/querylens/issues"
 [dependency-groups]
 dev = [
     "hypothesis>=6.170.13",
+    "import-linter>=2.15",
     "pip-audit>=2.7.0",
     "pre-commit>=4.7.0",
     "pyrefly>=1.4.0",
@@ -113,3 +114,41 @@ exclude_lines = [
     "raise NotImplementedError",
     "@overload",
 ]
+
+[tool.importlinter]
+root_package = "querylens"
+include_external_packages = true
+exclude_type_checking_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Layered architecture"
+type = "layers"
+layers = [
+    "querylens.cli : querylens.discover_cli",
+    "querylens.report",
+    "querylens.adapters | querylens.rules | querylens.discovery",
+    "querylens.model | querylens.config | querylens.logging",
+]
+
+[[tool.importlinter.contracts]]
+name = "Discovery is decoupled from the run path"
+type = "forbidden"
+source_modules = ["querylens.discovery"]
+forbidden_modules = [
+    "querylens.adapters",
+    "querylens.rules",
+    "querylens.model",
+    "querylens.config",
+]
+
+[[tool.importlinter.contracts]]
+name = "Domain code does not depend on the Azure SDK"
+type = "forbidden"
+source_modules = [
+    "querylens.rules",
+    "querylens.model",
+    "querylens.config",
+    "querylens.report",
+    "querylens.logging",
+]
+forbidden_modules = ["azure"]

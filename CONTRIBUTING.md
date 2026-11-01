@@ -60,6 +60,16 @@ Run type checking with [Pyrefly](https://github.com/facebook/pyrefly):
 uv run pyrefly check
 ```
 
+### Architecture Boundaries
+
+Module boundaries are checked with [import-linter](https://import-linter.readthedocs.io/). The contracts are in `pyproject.toml` under `[tool.importlinter]`, and the reasoning is in [ADR 0008](docs/adr/0008-architecture-boundaries-enforced-with-import-linter.md).
+
+```bash
+uv run lint-imports
+```
+
+The check also runs as a pre-commit hook. If it fails, either remove the import or change the contract deliberately, as described in the ADR.
+
 ### Offline Discovery Testing
 
 Log Analytics discovery tests (KQL query construction, parameter validation, caller attribution, service orchestration, and output formatting) run offline without Azure network calls or credentials using synthetic fixtures:
