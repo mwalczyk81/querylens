@@ -24,7 +24,7 @@ dependencies = [
     "azure-identity>=1.27.0",
     "azure-monitor-query==2.0.0",
     "click>=8.1.7",
-    "pydantic>=2.14.1",
+    "pydantic>=2.14.2",
     "pydantic-settings>=2.16.2",
     "pyyaml>=6.0.1",
     "rich>=13.7.0",
@@ -38,7 +38,7 @@ Issues = "https://github.com/mwalczyk81/querylens/issues"
 
 [dependency-groups]
 dev = [
-    "hypothesis>=6.170.13",
+    "hypothesis>=6.170.14",
     "import-linter>=2.15",
     "pip-audit>=2.7.0",
     "pre-commit>=4.7.0",
