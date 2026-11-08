@@ -3,7 +3,7 @@ azure-cosmos>=4.7.0
 azure-identity>=1.16.0
 azure-monitor-query==2.0.0
 click>=8.1.7
-pydantic>=2.7.0
+pydantic>=2.14.2
 pydantic-settings>=2.2.0
 pyyaml>=6.0.1
 rich>=13.7.0
